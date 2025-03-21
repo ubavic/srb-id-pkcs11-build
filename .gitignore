@@ -1,0 +1,12 @@
+test/*
+src/oasis/*
+
+*.o
+*.obj
+*.elf
+*.exe
+*.out
+*.app
+*.dll
+*.so
+*.so.*
