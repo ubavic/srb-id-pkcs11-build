@@ -1,4 +1,0 @@
-CompileFlags:
-  Add:
-    - "-I/usr/include/PCSC"
-    - "-std=c++20"
