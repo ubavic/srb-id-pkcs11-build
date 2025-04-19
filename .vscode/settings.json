@@ -3,5 +3,13 @@
     "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
     "[cpp]": {
         "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
-    }
+    },
+    "cSpell.words": [
+        "pkcs",
+        "SCARD",
+        "SCARDCONTEXT",
+        "SCARDHANDLE",
+        "smartcard",
+        "UNPOWERED"
+    ]
 }

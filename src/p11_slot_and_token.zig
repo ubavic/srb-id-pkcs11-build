@@ -1,0 +1,241 @@
+const std = @import("std");
+
+const pkcs = @cImport({
+    @cInclude("pkcs.h");
+});
+
+const sc = @cImport({
+    @cInclude("pcsclite.h");
+    @cInclude("winscard.h");
+    @cInclude("wintypes.h");
+});
+
+const state = @import("state.zig");
+const reader = @import("reader.zig");
+
+pub export fn getSlotList(token_present: pkcs.CK_BBOOL, slot_list: ?[*]pkcs.CK_SLOT_ID, slot_count: ?*pkcs.CK_ULONG) pkcs.CK_RV {
+    if (!state.initialized)
+        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
+
+    if (slot_count == null)
+        return pkcs.CKR_ARGUMENTS_BAD;
+
+    if (slot_list == null) {
+        const r = reader.refreshStatuses(state.allocator, state.smart_card_context_handle);
+        if (r != pkcs.CKR_OK) {
+            return r;
+        }
+    }
+
+    const only_with_token = token_present == pkcs.CK_TRUE;
+
+    var count: u32 = 0;
+    var iter = reader.reader_states.iterator();
+    while (iter.next()) |entry| {
+        if (entry.value_ptr.*.active and (!only_with_token or entry.value_ptr.*.card_present)) {
+            count += 1;
+        }
+    }
+
+    if (slot_list != null) {
+        if (slot_count.?.* < count)
+            return pkcs.CKR_BUFFER_TOO_SMALL;
+
+        var i: usize = 0;
+        iter = reader.reader_states.iterator();
+        while (iter.next()) |entry| {
+            if (entry.value_ptr.*.active and (!only_with_token or entry.value_ptr.*.card_present)) {
+                slot_list.?[i] = entry.key_ptr.*;
+                i += 1;
+            }
+        }
+    }
+
+    slot_count.?.* = count;
+    return pkcs.CKR_OK;
+}
+
+pub export fn getSlotInfo(slot_ID: pkcs.CK_SLOT_ID, slot_info: ?*pkcs.CK_SLOT_INFO) pkcs.CK_RV {
+    if (!state.initialized)
+        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
+
+    if (slot_info == null)
+        return pkcs.CKR_ARGUMENTS_BAD;
+
+    const reader_entry = reader.reader_states.get(slot_ID);
+    if (reader_entry == null)
+        return pkcs.CKR_SLOT_ID_INVALID;
+
+    var reader_state = reader_entry.?;
+
+    reader_state.writeShortName(&slot_info.?.slotDescription);
+    @memset(&slot_info.?.manufacturerID, ' ');
+
+    const rv = reader_state.refreshCardPresent(state.smart_card_context_handle);
+    if (rv != pkcs.CKR_OK) {
+        return pkcs.CKR_OK;
+    }
+
+    slot_info.?.flags = pkcs.CKF_HW_SLOT | pkcs.CKF_REMOVABLE_DEVICE;
+    if (reader_state.card_present)
+        slot_info.?.flags = slot_info.?.flags | pkcs.CKF_TOKEN_PRESENT;
+
+    slot_info.?.hardwareVersion.major = 0x01;
+    slot_info.?.hardwareVersion.minor = 0x00;
+    slot_info.?.firmwareVersion.major = 0x01;
+    slot_info.?.firmwareVersion.minor = 0x00;
+
+    return pkcs.CKR_OK;
+}
+
+pub export fn getTokenInfo(slot_id: pkcs.CK_SLOT_ID, token_info: ?*pkcs.CK_TOKEN_INFO) pkcs.CK_RV {
+    if (!state.initialized) {
+        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
+    }
+
+    if (token_info == null) {
+        return pkcs.CKR_ARGUMENTS_BAD;
+    }
+
+    const reader_entry = reader.reader_states.get(slot_id);
+    if (reader_entry == null)
+        return pkcs.CKR_SLOT_ID_INVALID;
+
+    var reader_state = reader_entry.?;
+
+    const rv = reader_state.refreshCardPresent(state.smart_card_context_handle);
+    if (rv != pkcs.CKR_OK) {
+        return pkcs.CKR_OK;
+    }
+
+    token_info.?.ulTotalPublicMemory = pkcs.CK_UNAVAILABLE_INFORMATION;
+    token_info.?.ulFreePublicMemory = pkcs.CK_UNAVAILABLE_INFORMATION;
+    token_info.?.ulTotalPrivateMemory = pkcs.CK_UNAVAILABLE_INFORMATION;
+    token_info.?.ulFreePrivateMemory = pkcs.CK_UNAVAILABLE_INFORMATION;
+
+    return pkcs.CKR_OK;
+}
+
+pub export fn getMechanismList(slot_id: pkcs.CK_SLOT_ID, mechanism_list: ?[*]pkcs.CK_MECHANISM_TYPE, count: ?*pkcs.CK_ULONG) pkcs.CK_RV {
+    const mechanisms = [_]pkcs.CK_MECHANISM_TYPE{
+        // pkcs.CKM_RSA_PKCS_KEY_PAIR_GEN,
+        // pkcs.CKM_RSA_PKCS,
+        // pkcs.CKM_RSA_X_509,
+        // pkcs.CKM_MD5_RSA_PKCS,
+        // pkcs.CKM_SHA1_RSA_PKCS,
+        // pkcs.CKM_RIPEMD160_RSA_PKCS,
+        // pkcs.CKM_SHA256_RSA_PKCS,
+        // pkcs.CKM_SHA384_RSA_PKCS,
+        // pkcs.CKM_SHA512_RSA_PKCS,
+        // pkcs.CKM_MD5,
+        // pkcs.CKM_SHA_1,
+        // pkcs.CKM_RIPEMD160,
+        // pkcs.CKM_SHA256,
+        // pkcs.CKM_SHA384,
+        // pkcs.CKM_SHA512,
+    };
+
+    if (!state.initialized) {
+        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
+    }
+
+    const reader_entry = reader.reader_states.get(slot_id);
+    if (reader_entry == null)
+        return pkcs.CKR_SLOT_ID_INVALID;
+
+    const reader_state = reader_entry.?;
+
+    if (reader_state.card_present) {
+        return pkcs.CKR_DEVICE_REMOVED;
+    }
+
+    if (!reader_state.recognized) {
+        return pkcs.CKR_TOKEN_NOT_RECOGNIZED;
+    }
+
+    if (mechanism_list != null) {
+        if (count.?.* < mechanisms.len) {
+            return pkcs.CKR_BUFFER_TOO_SMALL;
+        }
+
+        for (mechanisms, 0..) |m, i| {
+            mechanism_list.?[i] = m;
+        }
+    }
+
+    count.?.* = mechanisms.len;
+    return pkcs.CKR_OK;
+}
+
+pub export fn getMechanismInfo(slot_id: pkcs.CK_SLOT_ID, mechanism_type: pkcs.CK_MECHANISM_TYPE, mechanism_info: ?*pkcs.CK_MECHANISM_INFO) pkcs.CK_RV {
+    if (!state.initialized) {
+        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
+    }
+
+    const reader_entry = reader.reader_states.get(slot_id);
+    if (reader_entry == null)
+        return pkcs.CKR_SLOT_ID_INVALID;
+
+    const reader_state = reader_entry.?;
+
+    if (reader_state.card_present) {
+        return pkcs.CKR_DEVICE_REMOVED;
+    }
+
+    if (!reader_state.recognized) {
+        return pkcs.CKR_TOKEN_NOT_RECOGNIZED;
+    }
+
+    if (mechanism_info == null) {
+        return pkcs.CKR_ARGUMENTS_BAD;
+    }
+
+    switch (mechanism_type) {
+        pkcs.CKM_RSA_PKCS_KEY_PAIR_GEN => {
+            mechanism_info.?.ulMinKeySize = 1024;
+            mechanism_info.?.ulMaxKeySize = 2048;
+            mechanism_info.?.flags = pkcs.CKF_HW | pkcs.CKF_GENERATE_KEY_PAIR;
+        },
+        pkcs.CKM_RSA_PKCS,
+        pkcs.CKM_RSA_X_509,
+        pkcs.CKM_MD5_RSA_PKCS,
+        pkcs.CKM_SHA1_RSA_PKCS,
+        pkcs.CKM_RIPEMD160_RSA_PKCS,
+        pkcs.CKM_SHA256_RSA_PKCS,
+        pkcs.CKM_SHA384_RSA_PKCS,
+        pkcs.CKM_SHA512_RSA_PKCS,
+        => {
+            mechanism_info.?.ulMinKeySize = 1024;
+            mechanism_info.?.ulMaxKeySize = 2048;
+            mechanism_info.?.flags = pkcs.CKF_HW | pkcs.CKF_SIGN | pkcs.CKF_VERIFY;
+        },
+        pkcs.CKM_MD5,
+        pkcs.CKM_SHA_1,
+        pkcs.CKM_RIPEMD160,
+        pkcs.CKM_SHA256,
+        pkcs.CKM_SHA384,
+        pkcs.CKM_SHA512,
+        => {
+            mechanism_info.?.ulMinKeySize = 0;
+            mechanism_info.?.ulMaxKeySize = 0;
+            mechanism_info.?.flags = pkcs.CKF_DIGEST;
+        },
+        else => {
+            return pkcs.CKR_MECHANISM_INVALID;
+        },
+    }
+
+    return pkcs.CKR_OK;
+}
+
+pub export fn initToken(_: pkcs.CK_SLOT_ID, _: ?*pkcs.CK_UTF8CHAR, _: pkcs.CK_ULONG, _: ?*pkcs.CK_UTF8CHAR) pkcs.CK_RV {
+    return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+pub export fn initPin(_: pkcs.CK_SESSION_HANDLE, _: pkcs.CK_UTF8CHAR_PTR, _: pkcs.CK_ULONG) pkcs.CK_RV {
+    return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+pub export fn setPin(_: pkcs.CK_SESSION_HANDLE, _: pkcs.CK_UTF8CHAR_PTR, _: pkcs.CK_ULONG, _: pkcs.CK_UTF8CHAR_PTR, _: pkcs.CK_ULONG) pkcs.CK_RV {
+    return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
+}

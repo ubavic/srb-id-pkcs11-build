@@ -1,5 +1,10 @@
 test/*
-src/oasis/*
+.zig-cache/
+.vscode/
+
+include/pkcs11.h
+include/pkcs11f.h
+include/pkcs11t.h
 
 *.o
 *.obj
@@ -10,3 +15,4 @@ src/oasis/*
 *.dll
 *.so
 *.so.*
+*.a

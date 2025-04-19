@@ -4,7 +4,18 @@ This is an attempt to provide open source [PKCS11 v2.40](https://docs.oasis-open
 
 ## Compilation
 
-On Linux, run make and you are good to go.
+First, download PKCS11 headers:
+
+```bash
+OASIS_URL="https://docs.oasis-open.org/pkcs11/pkcs11-base/v2.40/errata01/os/include/pkcs11-v2.40"
+curl --output include/pkcs11.h $(OASIS_URL)/pkcs11.h; \
+curl --output include/pkcs11f.h $(OASIS_URL)/pkcs11f.h; \
+curl --output include/pkcs11t.h $(OASIS_URL)/pkcs11t.h; \
+```
+
+Then run `zig build` and you are good to go.
+
+You will maybe need to configure [PCSC lite](https://pcsclite.apdu.fr/) path in `build.zig`.
 
 ## Warranty
 
@@ -12,6 +23,4 @@ There is absolutely no warranty of any kind.
 
 ## License
 
-The code is released under the [unlicense](/LICENSE). You are free to do whatever you want with it.
-
-PKCS11 library files are copyrighted by OASIS Open.
+The code is released under the [unlicense](LICENSE). You are free to do whatever you want with code.
