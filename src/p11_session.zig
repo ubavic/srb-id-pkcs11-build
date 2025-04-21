@@ -9,7 +9,6 @@ const pcsc = @cImport({
 });
 
 const pkcs_error = @import("pkcs_error.zig");
-
 const state = @import("state.zig");
 const reader = @import("reader.zig");
 const session = @import("session.zig");
@@ -36,7 +35,9 @@ pub export fn openSession(
         return pkcs.CKR_ARGUMENTS_BAD;
     }
 
-    session_handle.?.* = session.newSession(slot_id) catch |err|
+    const write_enabled = (flags & pkcs.CKF_RW_SESSION) != 0;
+
+    session_handle.?.* = session.newSession(slot_id, write_enabled) catch |err|
         return pkcs_error.toRV(err);
 
     return pkcs.CKR_OK;
@@ -67,7 +68,7 @@ pub export fn closeAllSessions(slot_id: pkcs.CK_SLOT_ID) pkcs.CK_RV {
     while (it.next()) |entry| {
         const sessionId = entry.key_ptr.*;
         const session_entry = entry.value_ptr.*;
-        if (session_entry.slotId() == slot_id) {
+        if (session_entry.reader_id == slot_id) {
             session.closeSession(sessionId) catch |e| {
                 err = pkcs_error.toRV(e);
             };
@@ -81,12 +82,32 @@ pub export fn getSessionInfo(
     session_handle: pkcs.CK_SESSION_HANDLE,
     session_info: ?*pkcs.CK_SESSION_INFO,
 ) pkcs.CK_RV {
-    _ = session_handle;
-    _ = session_info;
+    if (!state.initialized) {
+        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
+    }
 
-    return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
+    if (session_info == null) {
+        return pkcs.CKR_ARGUMENTS_BAD;
+    }
+
+    const session_entry = session.sessions.get(session_handle);
+    if (session_entry == null) {
+        return pkcs.CKR_SESSION_HANDLE_INVALID;
+    }
+
+    const current_session = session_entry.?;
+
+    if (current_session.closed) {
+        return pkcs.CKR_SESSION_CLOSED;
+    }
+
+    session_info.?.slotID = current_session.reader_id;
+    session_info.?.flags = pkcs.CKF_SERIAL_SESSION | (if (current_session.write_enabled) pkcs.CKF_RW_SESSION else 0);
+
+    return pkcs.CKR_OK;
 }
 
+// not supported in the original module
 pub export fn getOperationState(
     session_handle: pkcs.CK_SESSION_HANDLE,
     operationS_state: ?[*]pkcs.CK_BYTE,
@@ -99,6 +120,7 @@ pub export fn getOperationState(
     return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
 }
 
+// not supported in the original module
 pub export fn setOperationState(
     session_handle: pkcs.CK_SESSION_HANDLE,
     operation_state: ?[*]const pkcs.CK_BYTE,
@@ -117,20 +139,20 @@ pub export fn setOperationState(
 
 pub export fn login(
     session_handle: pkcs.CK_SESSION_HANDLE,
-    userType: pkcs.CK_USER_TYPE,
-    pPin: ?[*]const pkcs.CK_UTF8CHAR,
-    ulPinLen: pkcs.CK_ULONG,
+    user_type: pkcs.CK_USER_TYPE,
+    pin: ?[*]const pkcs.CK_UTF8CHAR,
+    pin_length: pkcs.CK_ULONG,
 ) pkcs.CK_RV {
     _ = session_handle;
-    _ = userType;
-    _ = pPin;
-    _ = ulPinLen;
+    _ = user_type;
+    _ = pin;
+    _ = pin_length;
 
     return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
 }
 
-pub export fn logout(hSession: pkcs.CK_SESSION_HANDLE) pkcs.CK_RV {
-    _ = hSession;
+pub export fn logout(session_handle: pkcs.CK_SESSION_HANDLE) pkcs.CK_RV {
+    _ = session_handle;
 
     return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
 }

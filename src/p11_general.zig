@@ -13,8 +13,10 @@ const pcsc = @cImport({
 const version = @import("version.zig");
 const state = @import("state.zig");
 const reader = @import("reader.zig");
+const session = @import("session.zig");
 
 const p11_parallel = @import("p11_parallel.zig");
+const p11_random = @import("p11_random.zig");
 const p11_slot_and_token = @import("p11_slot_and_token.zig");
 const p11_key_management = @import("p11_key_management.zig");
 const p11_session = @import("p11_session.zig");
@@ -30,6 +32,7 @@ export fn initialize(_: pkcs.CK_VOID_PTR) pkcs.CK_RV {
     }
 
     reader.reader_states = std.AutoHashMap(pkcs.CK_SLOT_ID, reader.ReaderState).init(state.allocator);
+    session.sessions = std.AutoHashMap(pkcs.CK_SLOT_ID, session.Session).init(state.allocator);
 
     state.initialized = true;
     return pkcs.CKR_OK;
@@ -141,8 +144,8 @@ var functionList = pkcs.CK_FUNCTION_LIST{
     .C_WrapKey = p11_key_management.wrapKey,
     .C_UnwrapKey = p11_key_management.unwrapKey,
     .C_DeriveKey = null,
-    .C_SeedRandom = null,
-    .C_GenerateRandom = null,
+    .C_SeedRandom = p11_random.seedRandom,
+    .C_GenerateRandom = p11_random.generateRandom,
     .C_GetFunctionStatus = p11_parallel.getFunctionStatus,
     .C_CancelFunction = p11_parallel.cancelFunction,
     .C_WaitForSlotEvent = null,
