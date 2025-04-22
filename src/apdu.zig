@@ -7,10 +7,10 @@ pub fn build(
     ins: u8,
     p1: u8,
     p2: u8,
-    data: []const u8,
+    data: ?[]const u8,
     ne: u32,
 ) std.mem.Allocator.Error![]u8 {
-    const length = data.len;
+    const length = if (data == null) 0 else data.?.len;
 
     if (length > 0xFFFF)
         return std.mem.Allocator.Error.OutOfMemory;
@@ -45,24 +45,24 @@ pub fn build(
         if (ne == 0) {
             if (length <= 255) {
                 try apdu.append(@intCast(length));
-                try apdu.appendSlice(data);
+                try apdu.appendSlice(data.?);
             } else {
                 try apdu.append(0x00);
                 try apdu.append(@intCast(length >> 8));
                 try apdu.append(@intCast(length & 0xFF));
-                try apdu.appendSlice(data);
+                try apdu.appendSlice(data.?);
             }
         } else {
             if (length <= 255 and ne <= 256) {
                 try apdu.append(@intCast(length));
-                try apdu.appendSlice(data);
+                try apdu.appendSlice(data.?);
                 const neByte: u8 = if (ne == 256) 0x00 else @intCast(ne);
                 try apdu.append(neByte);
             } else {
                 try apdu.append(0x00);
                 try apdu.append(@intCast(length >> 8));
                 try apdu.append(@intCast(length & 0xFF));
-                try apdu.appendSlice(data);
+                try apdu.appendSlice(data.?);
                 if (ne != 65536) {
                     try apdu.append(@intCast(ne >> 8));
                     try apdu.append(@intCast(ne & 0xFF));

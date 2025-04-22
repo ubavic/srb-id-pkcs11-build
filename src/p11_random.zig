@@ -48,7 +48,7 @@ pub export fn generateRandom(
     var i: c_ulong = 0;
     var remaining_size = random_size;
     while (i < random_size) {
-        const segment_size: u8 = @min(255, remaining_size); //TODO
+        const segment_size: u8 = @min(128, remaining_size);
 
         const segment = current_session.card.readRandom(state.allocator, segment_size) catch |err|
             return pkcs_error.toRV(err);
@@ -60,6 +60,6 @@ pub export fn generateRandom(
 
         state.allocator.free(segment);
     }
-}
 
-// b3 83 00 00 80
+    return pkcs.CKR_OK;
+}

@@ -107,11 +107,11 @@ pub const Card = struct {
     ) PkcsError![]u8 {
         const data_unit = apdu.build(
             allocator,
-            0xB3,
+            0xB0,
             0x83,
             0x00,
             0x00,
-            null, // TODO
+            null,
             length,
         ) catch {
             return PkcsError.HostMemory;
