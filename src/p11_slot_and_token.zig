@@ -127,12 +127,12 @@ pub export fn getMechanismList(slot_id: pkcs.CK_SLOT_ID, mechanism_list: ?[*]pkc
         // pkcs.CKM_SHA256_RSA_PKCS,
         // pkcs.CKM_SHA384_RSA_PKCS,
         // pkcs.CKM_SHA512_RSA_PKCS,
-        // pkcs.CKM_MD5,
-        // pkcs.CKM_SHA_1,
+        pkcs.CKM_MD5,
+        pkcs.CKM_SHA_1,
         // pkcs.CKM_RIPEMD160,
-        // pkcs.CKM_SHA256,
-        // pkcs.CKM_SHA384,
-        // pkcs.CKM_SHA512,
+        pkcs.CKM_SHA256,
+        pkcs.CKM_SHA384,
+        pkcs.CKM_SHA512,
     };
 
     if (!state.initialized) {
@@ -211,7 +211,7 @@ pub export fn getMechanismInfo(slot_id: pkcs.CK_SLOT_ID, mechanism_type: pkcs.CK
         },
         pkcs.CKM_MD5,
         pkcs.CKM_SHA_1,
-        pkcs.CKM_RIPEMD160,
+        //pkcs.CKM_RIPEMD160,
         pkcs.CKM_SHA256,
         pkcs.CKM_SHA384,
         pkcs.CKM_SHA512,

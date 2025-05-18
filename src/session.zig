@@ -12,6 +12,7 @@ const sc = @cImport({
     @cInclude("wintypes.h");
 });
 
+const hasher = @import("hasher.zig");
 const state = @import("state.zig");
 const reader = @import("reader.zig");
 const smart_card = @import("smart-card.zig");
@@ -27,6 +28,9 @@ pub const Session = struct {
     logged_in: bool = false,
     closed: bool = false,
     write_enabled: bool,
+    digest_initialized: bool = false,
+    multipart_digest: bool = false,
+    hasher: hasher.Hasher = undefined,
 
     pub fn login(self: *Session) !void {
         self.logged_in = true;
@@ -38,6 +42,12 @@ pub const Session = struct {
 
     pub fn slot(self: *Session) void {
         return self.card.reader_id;
+    }
+
+    pub fn resetDigestSession(self: *Session, allocator: std.mem.Allocator) void {
+        self.digest_initialized = false;
+        self.multipart_digest = false;
+        self.hasher.destroy(allocator);
     }
 };
 
@@ -88,6 +98,8 @@ pub fn closeSession(session_handle: pkcs.CK_SESSION_HANDLE) PkcsError!void {
     }
 
     session.closed = true;
+
+    session.hasher.destroy(state.allocator);
 
     _ = session.card.disconnect() catch {};
 
