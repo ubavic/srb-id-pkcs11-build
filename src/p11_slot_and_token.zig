@@ -239,3 +239,14 @@ pub export fn initPin(_: pkcs.CK_SESSION_HANDLE, _: pkcs.CK_UTF8CHAR_PTR, _: pkc
 pub export fn setPin(_: pkcs.CK_SESSION_HANDLE, _: pkcs.CK_UTF8CHAR_PTR, _: pkcs.CK_ULONG, _: pkcs.CK_UTF8CHAR_PTR, _: pkcs.CK_ULONG) pkcs.CK_RV {
     return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
 }
+
+pub export fn waitForSlotEvent(
+    flags: pkcs.CK_FLAGS,
+    slot: ?*pkcs.CK_SLOT_ID,
+    reserved: ?*anyopaque,
+) pkcs.CK_RV {
+    _ = flags;
+    _ = slot;
+    _ = reserved;
+    return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
+}
