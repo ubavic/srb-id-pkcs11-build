@@ -8,9 +8,9 @@ First, download PKCS11 headers:
 
 ```bash
 OASIS_URL="https://docs.oasis-open.org/pkcs11/pkcs11-base/v2.40/errata01/os/include/pkcs11-v2.40"
-curl --output include/pkcs11.h $(OASIS_URL)/pkcs11.h; \
-curl --output include/pkcs11f.h $(OASIS_URL)/pkcs11f.h; \
-curl --output include/pkcs11t.h $(OASIS_URL)/pkcs11t.h; \
+curl --output include/pkcs11.h $(OASIS_URL)/pkcs11.h
+curl --output include/pkcs11f.h $(OASIS_URL)/pkcs11f.h
+curl --output include/pkcs11t.h $(OASIS_URL)/pkcs11t.h
 ```
 
 Then run `zig build` and you are good to go.
