@@ -196,11 +196,11 @@ pub export fn getMechanismInfo(slot_id: pkcs.CK_SLOT_ID, mechanism_type: pkcs.CK
             mechanism_info.?.ulMaxKeySize = 2048;
             mechanism_info.?.flags = pkcs.CKF_HW | pkcs.CKF_GENERATE_KEY_PAIR;
         },
-        pkcs.CKM_RSA_PKCS,
-        pkcs.CKM_RSA_X_509,
+        //pkcs.CKM_RSA_PKCS,
+        //pkcs.CKM_RSA_X_509,
         pkcs.CKM_MD5_RSA_PKCS,
         pkcs.CKM_SHA1_RSA_PKCS,
-        pkcs.CKM_RIPEMD160_RSA_PKCS,
+        //pkcs.CKM_RIPEMD160_RSA_PKCS,
         pkcs.CKM_SHA256_RSA_PKCS,
         pkcs.CKM_SHA384_RSA_PKCS,
         pkcs.CKM_SHA512_RSA_PKCS,

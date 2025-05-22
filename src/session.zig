@@ -28,8 +28,11 @@ pub const Session = struct {
     logged_in: bool = false,
     closed: bool = false,
     write_enabled: bool,
+    sign_initialized: bool = false,
+    verify_initialized: bool = false,
     digest_initialized: bool = false,
     multipart_operation: bool = false,
+    key: pkcs.CK_OBJECT_HANDLE = 0,
     hasher: hasher.Hasher = undefined,
 
     pub fn login(self: *Session) !void {
@@ -44,10 +47,50 @@ pub const Session = struct {
         return self.card.reader_id;
     }
 
+    pub fn resetSignSession(self: *Session, allocator: std.mem.Allocator) void {
+        self.key = 0;
+        self.resetDigestSession(allocator);
+    }
+
     pub fn resetDigestSession(self: *Session, allocator: std.mem.Allocator) void {
         self.digest_initialized = false;
-        self.multipart_digest = false;
+        self.multipart_operation = false;
         self.hasher.destroy(allocator);
+    }
+
+    pub fn signatureSize(self: *Session) usize {
+        _ = self;
+        unreachable;
+    }
+
+    pub fn signUpdate(self: *Session, data: []const u8) void {
+        _ = self;
+        _ = data;
+        unreachable;
+    }
+
+    pub fn signFinalize(
+        self: *Session,
+        allocator: std.mem.Allocator,
+    ) std.mem.Allocator.Error![]u8 {
+        _ = self;
+        _ = allocator;
+        unreachable;
+    }
+
+    pub fn verifyUpdate(self: *Session, data: []const u8) void {
+        _ = self;
+        _ = data;
+        unreachable;
+    }
+
+    pub fn verifyFinalize(
+        self: *Session,
+        allocator: std.mem.Allocator,
+    ) std.mem.Allocator.Error![]u8 {
+        _ = self;
+        _ = allocator;
+        unreachable;
     }
 };
 
