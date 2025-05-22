@@ -53,9 +53,9 @@ pub export fn digestInit(
         return pkcs.CKR_OPERATION_ACTIVE;
     }
 
-    session_entry.?.digest_initialized = true;
     session_entry.?.hasher = hasher.createAndInit(hash_mechanism, state.allocator) catch
         return pkcs.CKR_HOST_MEMORY;
+    session_entry.?.digest_initialized = true;
 
     return pkcs.CKR_OK;
 }
@@ -82,8 +82,8 @@ pub export fn digest(
         return pkcs.CKR_OPERATION_NOT_INITIALIZED;
     }
 
-    if (current_session.multipart_digest) {
-        current_session.hasher.destroy(state.allocator);
+    if (current_session.multipart_operation) {
+        current_session.resetDigestSession(state.allocator);
         return pkcs.CKR_FUNCTION_CANCELED;
     }
 
@@ -150,7 +150,7 @@ pub export fn digestUpdate(
         return pkcs.CKR_ARGUMENTS_BAD;
     }
 
-    current_session.multipart_digest = true;
+    current_session.multipart_operation = true;
 
     const casted_part: [*]u8 = @ptrCast(part);
     current_session.hasher.update(casted_part[0..part_len]);

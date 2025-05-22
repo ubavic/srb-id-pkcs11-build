@@ -29,7 +29,7 @@ pub const Session = struct {
     closed: bool = false,
     write_enabled: bool,
     digest_initialized: bool = false,
-    multipart_digest: bool = false,
+    multipart_operation: bool = false,
     hasher: hasher.Hasher = undefined,
 
     pub fn login(self: *Session) !void {
