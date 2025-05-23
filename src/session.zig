@@ -1,7 +1,5 @@
 const std = @import("std");
 
-const PkcsError = @import("pkcs_error.zig").PkcsError;
-
 const pkcs = @cImport({
     @cInclude("pkcs.h");
 });
@@ -13,13 +11,16 @@ const sc = @cImport({
 });
 
 const hasher = @import("hasher.zig");
-const state = @import("state.zig");
+const pkcs_error = @import("pkcs_error.zig");
 const reader = @import("reader.zig");
 const smart_card = @import("smart-card.zig");
+const state = @import("state.zig");
+
+const PkcsError = pkcs_error.PkcsError;
 
 var next_session_id: pkcs.CK_SESSION_HANDLE = 1;
 
-pub var sessions: std.AutoHashMap(pkcs.CK_SESSION_HANDLE, Session) = undefined;
+var sessions: std.AutoHashMap(pkcs.CK_SESSION_HANDLE, Session) = undefined;
 
 pub const Session = struct {
     id: pkcs.CK_SESSION_HANDLE,
@@ -94,6 +95,10 @@ pub const Session = struct {
     }
 };
 
+pub fn initSessions(allocator: std.mem.Allocator) void {
+    sessions = std.AutoHashMap(pkcs.CK_SLOT_ID, Session).init(allocator);
+}
+
 pub fn newSession(
     slot_id: pkcs.CK_SESSION_HANDLE,
     write_enabled: bool,
@@ -128,6 +133,25 @@ pub fn newSession(
     return session_id;
 }
 
+pub fn getSession(
+    session_handle: pkcs.CK_SESSION_HANDLE,
+    login_required: bool,
+) PkcsError!*Session {
+    if (!state.initialized)
+        return PkcsError.CryptokiNotInitialized;
+
+    const session_entry = sessions.getPtr(session_handle);
+    if (session_entry == null)
+        return PkcsError.SessionHandleInvalid;
+
+    const current_session = session_entry.?;
+
+    if (login_required and !current_session.logged_in)
+        return PkcsError.UserNotLoggedIn;
+
+    return current_session;
+}
+
 pub fn closeSession(session_handle: pkcs.CK_SESSION_HANDLE) PkcsError!void {
     const session_entry = sessions.getPtr(session_handle);
     if (session_entry == null) {
@@ -136,9 +160,8 @@ pub fn closeSession(session_handle: pkcs.CK_SESSION_HANDLE) PkcsError!void {
 
     const session = session_entry.?;
 
-    if (session.closed) {
+    if (session.closed)
         return PkcsError.SessionClosed;
-    }
 
     session.closed = true;
 
@@ -147,4 +170,21 @@ pub fn closeSession(session_handle: pkcs.CK_SESSION_HANDLE) PkcsError!void {
     _ = session.card.disconnect() catch {};
 
     _ = sessions.remove(session_handle);
+}
+
+pub fn closeAllSessions(slot_id: pkcs.CK_SLOT_ID) pkcs.CK_RV {
+    var err: pkcs.CK_RV = pkcs.CKR_OK;
+    var it = sessions.iterator();
+
+    while (it.next()) |entry| {
+        const sessionId = entry.key_ptr.*;
+        const session_entry = entry.value_ptr.*;
+        if (session_entry.reader_id == slot_id) {
+            closeSession(sessionId) catch |e| {
+                err = pkcs_error.toRV(e);
+            };
+        }
+    }
+
+    return err;
 }

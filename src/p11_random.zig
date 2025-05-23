@@ -14,13 +14,8 @@ pub export fn seedRandom(
     _: pkcs.CK_BYTE_PTR,
     _: pkcs.CK_ULONG,
 ) pkcs.CK_RV {
-    if (!state.initialized) {
-        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    if (!session.sessions.contains(session_handle)) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
+    _ = session.getSession(session_handle, false) catch |err|
+        return pkcs_error.toRV(err);
 
     return pkcs.CKR_RANDOM_SEED_NOT_SUPPORTED;
 }
@@ -30,20 +25,8 @@ pub export fn generateRandom(
     random_data: [*c]pkcs.CK_BYTE,
     random_size: pkcs.CK_ULONG,
 ) pkcs.CK_RV {
-    if (!state.initialized) {
-        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    const session_entry = session.sessions.get(session_handle);
-    if (session_entry == null) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
-
-    const current_session = session_entry.?;
-
-    if (current_session.closed) {
-        return pkcs.CKR_SESSION_CLOSED;
-    }
+    const current_session = session.getSession(session_handle, false) catch |err|
+        return pkcs_error.toRV(err);
 
     var i: c_ulong = 0;
     var remaining_size = random_size;

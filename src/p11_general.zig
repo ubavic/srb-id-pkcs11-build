@@ -38,7 +38,7 @@ export fn initialize(_: pkcs.CK_VOID_PTR) pkcs.CK_RV {
     }
 
     reader.reader_states = std.AutoHashMap(pkcs.CK_SLOT_ID, reader.ReaderState).init(state.allocator);
-    session.sessions = std.AutoHashMap(pkcs.CK_SLOT_ID, session.Session).init(state.allocator);
+    session.initSessions(state.allocator);
 
     state.initialized = true;
     return pkcs.CKR_OK;

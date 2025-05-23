@@ -44,9 +44,8 @@ pub export fn openSession(
 }
 
 pub export fn closeSession(session_handle: pkcs.CK_SESSION_HANDLE) pkcs.CK_RV {
-    if (!state.initialized) {
+    if (!state.initialized)
         return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
 
     session.closeSession(session_handle) catch |err|
         return pkcs_error.toRV(err);
@@ -55,27 +54,13 @@ pub export fn closeSession(session_handle: pkcs.CK_SESSION_HANDLE) pkcs.CK_RV {
 }
 
 pub export fn closeAllSessions(slot_id: pkcs.CK_SLOT_ID) pkcs.CK_RV {
-    if (!state.initialized) {
+    if (!state.initialized)
         return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
 
-    if (!reader.reader_states.contains(slot_id)) {
+    if (!reader.reader_states.contains(slot_id))
         return pkcs.CKR_SLOT_ID_INVALID;
-    }
 
-    var err: pkcs.CK_RV = pkcs.CKR_OK;
-    var it = session.sessions.iterator();
-    while (it.next()) |entry| {
-        const sessionId = entry.key_ptr.*;
-        const session_entry = entry.value_ptr.*;
-        if (session_entry.reader_id == slot_id) {
-            session.closeSession(sessionId) catch |e| {
-                err = pkcs_error.toRV(e);
-            };
-        }
-    }
-
-    return err;
+    return session.closeAllSessions(slot_id);
 }
 
 pub export fn getSessionInfo(
@@ -90,12 +75,8 @@ pub export fn getSessionInfo(
         return pkcs.CKR_ARGUMENTS_BAD;
     }
 
-    const session_entry = session.sessions.get(session_handle);
-    if (session_entry == null) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
-
-    const current_session = session_entry.?;
+    const current_session = session.getSession(session_handle, false) catch |err|
+        return pkcs_error.toRV(err);
 
     if (current_session.closed) {
         return pkcs.CKR_SESSION_CLOSED;

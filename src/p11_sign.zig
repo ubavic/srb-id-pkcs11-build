@@ -1,4 +1,4 @@
-const pkcs_error = @import("pkcs_error.zig");
+const PkcsError = @import("pkcs_error.zig");
 const state = @import("state.zig");
 const session = @import("session.zig");
 const hasher = @import("hasher.zig");
@@ -12,20 +12,12 @@ pub export fn signInit(
     mechanism: ?*pkcs.CK_MECHANISM,
     key: pkcs.CK_OBJECT_HANDLE,
 ) pkcs.CK_RV {
-    if (!state.initialized) {
-        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    const session_entry = session.sessions.getPtr(session_handle);
-    if (session_entry == null) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
+    const current_session = session.getSession(session_handle, true) catch |err|
+        return PkcsError.toRV(err);
 
     if (mechanism == null) {
         return pkcs.CKR_ARGUMENTS_BAD;
     }
-
-    const current_session = session_entry.?;
 
     if (current_session.sign_initialized) {
         return pkcs.CKR_OPERATION_ACTIVE;
@@ -85,16 +77,8 @@ pub export fn sign(
     signature: ?[*]pkcs.CK_BYTE,
     signature_len: ?*pkcs.CK_ULONG,
 ) pkcs.CK_RV {
-    if (!state.initialized) {
-        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    const session_entry = session.sessions.getPtr(session_handle);
-    if (session_entry == null) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
-
-    const current_session = session_entry.?;
+    const current_session = session.getSession(session_handle, true) catch |err|
+        return PkcsError.toRV(err);
 
     if (!current_session.sign_initialized) {
         return pkcs.CKR_OPERATION_NOT_INITIALIZED;
@@ -147,16 +131,8 @@ pub export fn signUpdate(
     part: ?[*]pkcs.CK_BYTE,
     part_len: pkcs.CK_ULONG,
 ) pkcs.CK_RV {
-    if (!state.initialized) {
-        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    const session_entry = session.sessions.getPtr(session_handle);
-    if (session_entry == null) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
-
-    const current_session = session_entry.?;
+    const current_session = session.getSession(session_handle, true) catch |err|
+        return PkcsError.toRV(err);
 
     if (!current_session.sign_initialized) {
         return pkcs.CKR_OPERATION_NOT_INITIALIZED;
@@ -180,16 +156,8 @@ pub export fn signFinal(
     signature: ?[*]pkcs.CK_BYTE,
     signature_len: ?*pkcs.CK_ULONG,
 ) pkcs.CK_RV {
-    if (!state.initialized) {
-        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    const session_entry = session.sessions.getPtr(session_handle);
-    if (session_entry == null) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
-
-    const current_session = session_entry.?;
+    const current_session = session.getSession(session_handle, true) catch |err|
+        return PkcsError.toRV(err);
 
     if (!current_session.sign_initialized) {
         return pkcs.CKR_OPERATION_NOT_INITIALIZED;
@@ -224,14 +192,8 @@ pub export fn signRecoverInit(
     mechanism: ?*pkcs.CK_MECHANISM,
     key: pkcs.CK_OBJECT_HANDLE,
 ) pkcs.CK_RV {
-    if (!state.initialized) {
-        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    const session_entry = session.sessions.getPtr(session_handle);
-    if (session_entry == null) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
+    _ = session.getSession(session_handle, true) catch |err|
+        return PkcsError.toRV(err);
 
     _ = mechanism;
     _ = key;
@@ -245,14 +207,8 @@ pub export fn signRecover(
     signature: ?[*]pkcs.CK_BYTE,
     signature_len: ?*pkcs.CK_ULONG,
 ) pkcs.CK_RV {
-    if (!state.initialized) {
-        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    const session_entry = session.sessions.getPtr(session_handle);
-    if (session_entry == null) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
+    _ = session.getSession(session_handle, true) catch |err|
+        return PkcsError.toRV(err);
 
     _ = data;
     _ = data_len;
@@ -267,16 +223,8 @@ pub export fn verifyInit(
     mechanism: ?*pkcs.CK_MECHANISM,
     key: pkcs.CK_OBJECT_HANDLE,
 ) pkcs.CK_RV {
-    if (!state.initialized) {
-        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    const session_entry = session.sessions.getPtr(session_handle);
-    if (session_entry == null) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
-
-    const current_session = session_entry.?;
+    const current_session = session.getSession(session_handle, true) catch |err|
+        return PkcsError.toRV(err);
 
     if (mechanism == null) {
         return pkcs.CKR_ARGUMENTS_BAD;
@@ -340,16 +288,8 @@ pub export fn verify(
     signature: ?[*]const pkcs.CK_BYTE,
     signature_len: pkcs.CK_ULONG,
 ) pkcs.CK_RV {
-    if (!state.initialized) {
-        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    const session_entry = session.sessions.getPtr(session_handle);
-    if (session_entry == null) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
-
-    const current_session = session_entry.?;
+    const current_session = session.getSession(session_handle, true) catch |err|
+        return PkcsError.toRV(err);
 
     if (!current_session.verify_initialized) {
         return pkcs.CKR_OPERATION_NOT_INITIALIZED;
@@ -375,16 +315,8 @@ pub export fn verifyUpdate(
     part: ?[*]const pkcs.CK_BYTE,
     part_len: pkcs.CK_ULONG,
 ) pkcs.CK_RV {
-    if (!state.initialized) {
-        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    const session_entry = session.sessions.getPtr(session_handle);
-    if (session_entry == null) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
-
-    const current_session = session_entry.?;
+    const current_session = session.getSession(session_handle, true) catch |err|
+        return PkcsError.toRV(err);
 
     if (!current_session.verify_initialized) {
         return pkcs.CKR_OPERATION_NOT_INITIALIZED;
@@ -406,16 +338,8 @@ pub export fn verifyFinal(
     signature: ?[*]const pkcs.CK_BYTE,
     signature_len: pkcs.CK_ULONG,
 ) pkcs.CK_RV {
-    if (!state.initialized) {
-        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    const session_entry = session.sessions.getPtr(session_handle);
-    if (session_entry == null) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
-
-    const current_session = session_entry.?;
+    const current_session = session.getSession(session_handle, true) catch |err|
+        return PkcsError.toRV(err);
 
     if (!current_session.verify_initialized) {
         return pkcs.CKR_OPERATION_NOT_INITIALIZED;
@@ -433,14 +357,8 @@ pub export fn verifyRecoverInit(
     mechanism: ?*pkcs.CK_MECHANISM,
     key: pkcs.CK_OBJECT_HANDLE,
 ) pkcs.CK_RV {
-    if (!state.initialized) {
-        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    const session_entry = session.sessions.getPtr(session_handle);
-    if (session_entry == null) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
+    _ = session.getSession(session_handle, true) catch |err|
+        return PkcsError.toRV(err);
 
     _ = mechanism;
     _ = key;
@@ -454,14 +372,8 @@ pub export fn verifyRecover(
     data: ?[*]pkcs.CK_BYTE,
     data_len: ?*pkcs.CK_ULONG,
 ) pkcs.CK_RV {
-    if (!state.initialized) {
-        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    const session_entry = session.sessions.getPtr(session_handle);
-    if (session_entry == null) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
+    _ = session.getSession(session_handle, true) catch |err|
+        return PkcsError.toRV(err);
 
     _ = signature;
     _ = signature_len;

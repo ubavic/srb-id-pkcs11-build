@@ -13,14 +13,8 @@ pub export fn digestInit(
     session_handle: pkcs.CK_SESSION_HANDLE,
     mechanism: ?*pkcs.CK_MECHANISM,
 ) pkcs.CK_RV {
-    if (!state.initialized) {
-        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    const session_entry = session.sessions.getPtr(session_handle);
-    if (session_entry == null) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
+    const current_session = session.getSession(session_handle, false) catch |err|
+        return pkcs_error.toRV(err);
 
     if (mechanism == null) {
         return pkcs.CKR_ARGUMENTS_BAD;
@@ -49,13 +43,13 @@ pub export fn digestInit(
         },
     }
 
-    if (session_entry.?.digest_initialized) {
+    if (current_session.digest_initialized) {
         return pkcs.CKR_OPERATION_ACTIVE;
     }
 
-    session_entry.?.hasher = hasher.createAndInit(hash_mechanism, state.allocator) catch
+    current_session.hasher = hasher.createAndInit(hash_mechanism, state.allocator) catch
         return pkcs.CKR_HOST_MEMORY;
-    session_entry.?.digest_initialized = true;
+    current_session.digest_initialized = true;
 
     return pkcs.CKR_OK;
 }
@@ -67,16 +61,8 @@ pub export fn digest(
     data_digest: ?[*]pkcs.CK_BYTE,
     data_digest_len: ?*pkcs.CK_ULONG,
 ) pkcs.CK_RV {
-    if (!state.initialized) {
-        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    const session_entry = session.sessions.getPtr(session_handle);
-    if (session_entry == null) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
-
-    const current_session = session_entry.?;
+    const current_session = session.getSession(session_handle, false) catch |err|
+        return pkcs_error.toRV(err);
 
     if (!current_session.digest_initialized) {
         return pkcs.CKR_OPERATION_NOT_INITIALIZED;
@@ -130,16 +116,8 @@ pub export fn digestUpdate(
     part: ?[*]pkcs.CK_BYTE,
     part_len: pkcs.CK_ULONG,
 ) pkcs.CK_RV {
-    if (!state.initialized) {
-        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    const session_entry = session.sessions.getPtr(session_handle);
-    if (session_entry == null) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
-
-    const current_session = session_entry.?;
+    const current_session = session.getSession(session_handle, false) catch |err|
+        return pkcs_error.toRV(err);
 
     if (!current_session.digest_initialized) {
         return pkcs.CKR_OPERATION_NOT_INITIALIZED;
@@ -173,16 +151,8 @@ pub export fn digestFinal(
     data_digest: ?[*]pkcs.CK_BYTE,
     data_digest_len: ?*pkcs.CK_ULONG,
 ) pkcs.CK_RV {
-    if (!state.initialized) {
-        return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    const session_entry = session.sessions.getPtr(session_handle);
-    if (session_entry == null) {
-        return pkcs.CKR_SESSION_HANDLE_INVALID;
-    }
-
-    const current_session = session_entry.?;
+    const current_session = session.getSession(session_handle, false) catch |err|
+        return pkcs_error.toRV(err);
 
     if (!current_session.digest_initialized) {
         return pkcs.CKR_OPERATION_NOT_INITIALIZED;
