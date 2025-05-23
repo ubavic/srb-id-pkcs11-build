@@ -1,4 +1,4 @@
-const PkcsError = @import("pkcs_error.zig");
+const pkcs_error = @import("pkcs_error.zig");
 const state = @import("state.zig");
 const session = @import("session.zig");
 const hasher = @import("hasher.zig");
@@ -13,7 +13,7 @@ pub export fn signInit(
     key: pkcs.CK_OBJECT_HANDLE,
 ) pkcs.CK_RV {
     const current_session = session.getSession(session_handle, true) catch |err|
-        return PkcsError.toRV(err);
+        return pkcs_error.toRV(err);
 
     if (mechanism == null) {
         return pkcs.CKR_ARGUMENTS_BAD;
@@ -78,7 +78,7 @@ pub export fn sign(
     signature_len: ?*pkcs.CK_ULONG,
 ) pkcs.CK_RV {
     const current_session = session.getSession(session_handle, true) catch |err|
-        return PkcsError.toRV(err);
+        return pkcs_error.toRV(err);
 
     if (!current_session.sign_initialized) {
         return pkcs.CKR_OPERATION_NOT_INITIALIZED;
@@ -132,7 +132,7 @@ pub export fn signUpdate(
     part_len: pkcs.CK_ULONG,
 ) pkcs.CK_RV {
     const current_session = session.getSession(session_handle, true) catch |err|
-        return PkcsError.toRV(err);
+        return pkcs_error.toRV(err);
 
     if (!current_session.sign_initialized) {
         return pkcs.CKR_OPERATION_NOT_INITIALIZED;
@@ -157,7 +157,7 @@ pub export fn signFinal(
     signature_len: ?*pkcs.CK_ULONG,
 ) pkcs.CK_RV {
     const current_session = session.getSession(session_handle, true) catch |err|
-        return PkcsError.toRV(err);
+        return pkcs_error.toRV(err);
 
     if (!current_session.sign_initialized) {
         return pkcs.CKR_OPERATION_NOT_INITIALIZED;
@@ -193,7 +193,7 @@ pub export fn signRecoverInit(
     key: pkcs.CK_OBJECT_HANDLE,
 ) pkcs.CK_RV {
     _ = session.getSession(session_handle, true) catch |err|
-        return PkcsError.toRV(err);
+        return pkcs_error.toRV(err);
 
     _ = mechanism;
     _ = key;
@@ -208,7 +208,7 @@ pub export fn signRecover(
     signature_len: ?*pkcs.CK_ULONG,
 ) pkcs.CK_RV {
     _ = session.getSession(session_handle, true) catch |err|
-        return PkcsError.toRV(err);
+        return pkcs_error.toRV(err);
 
     _ = data;
     _ = data_len;
@@ -224,7 +224,7 @@ pub export fn verifyInit(
     key: pkcs.CK_OBJECT_HANDLE,
 ) pkcs.CK_RV {
     const current_session = session.getSession(session_handle, true) catch |err|
-        return PkcsError.toRV(err);
+        return pkcs_error.toRV(err);
 
     if (mechanism == null) {
         return pkcs.CKR_ARGUMENTS_BAD;
@@ -289,7 +289,7 @@ pub export fn verify(
     signature_len: pkcs.CK_ULONG,
 ) pkcs.CK_RV {
     const current_session = session.getSession(session_handle, true) catch |err|
-        return PkcsError.toRV(err);
+        return pkcs_error.toRV(err);
 
     if (!current_session.verify_initialized) {
         return pkcs.CKR_OPERATION_NOT_INITIALIZED;
@@ -316,7 +316,7 @@ pub export fn verifyUpdate(
     part_len: pkcs.CK_ULONG,
 ) pkcs.CK_RV {
     const current_session = session.getSession(session_handle, true) catch |err|
-        return PkcsError.toRV(err);
+        return pkcs_error.toRV(err);
 
     if (!current_session.verify_initialized) {
         return pkcs.CKR_OPERATION_NOT_INITIALIZED;
@@ -339,7 +339,7 @@ pub export fn verifyFinal(
     signature_len: pkcs.CK_ULONG,
 ) pkcs.CK_RV {
     const current_session = session.getSession(session_handle, true) catch |err|
-        return PkcsError.toRV(err);
+        return pkcs_error.toRV(err);
 
     if (!current_session.verify_initialized) {
         return pkcs.CKR_OPERATION_NOT_INITIALIZED;
@@ -358,7 +358,7 @@ pub export fn verifyRecoverInit(
     key: pkcs.CK_OBJECT_HANDLE,
 ) pkcs.CK_RV {
     _ = session.getSession(session_handle, true) catch |err|
-        return PkcsError.toRV(err);
+        return pkcs_error.toRV(err);
 
     _ = mechanism;
     _ = key;
@@ -373,7 +373,7 @@ pub export fn verifyRecover(
     data_len: ?*pkcs.CK_ULONG,
 ) pkcs.CK_RV {
     _ = session.getSession(session_handle, true) catch |err|
-        return PkcsError.toRV(err);
+        return pkcs_error.toRV(err);
 
     _ = signature;
     _ = signature_len;
