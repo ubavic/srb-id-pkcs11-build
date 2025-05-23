@@ -360,16 +360,13 @@ pub export fn verify(
         return pkcs.CKR_FUNCTION_CANCELED;
     }
 
-    if (signature_len == null) {
-        current_session.resetSignSession(state.allocator);
-        return pkcs.CKR_ARGUMENTS_BAD;
-    }
-
     //TODO: Implementation
 
     _ = data;
     _ = data_len;
     _ = signature;
+    _ = signature_len;
+
     return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
 }
 
