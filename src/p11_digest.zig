@@ -43,13 +43,13 @@ pub export fn digestInit(
         },
     }
 
-    if (current_session.digest_initialized) {
-        return pkcs.CKR_OPERATION_ACTIVE;
-    }
+    current_session.assertNoOperation() catch |err|
+        return pkcs_error.toRV(err);
 
     current_session.hasher = hasher.createAndInit(hash_mechanism, state.allocator) catch
         return pkcs.CKR_HOST_MEMORY;
-    current_session.digest_initialized = true;
+
+    current_session.operation = session.Operation.Digest;
 
     return pkcs.CKR_OK;
 }
@@ -64,9 +64,8 @@ pub export fn digest(
     const current_session = session.getSession(session_handle, false) catch |err|
         return pkcs_error.toRV(err);
 
-    if (!current_session.digest_initialized) {
-        return pkcs.CKR_OPERATION_NOT_INITIALIZED;
-    }
+    current_session.assertOperation(session.Operation.Digest) catch |err|
+        return pkcs_error.toRV(err);
 
     if (current_session.multipart_operation) {
         current_session.resetDigestSession(state.allocator);
@@ -119,9 +118,8 @@ pub export fn digestUpdate(
     const current_session = session.getSession(session_handle, false) catch |err|
         return pkcs_error.toRV(err);
 
-    if (!current_session.digest_initialized) {
-        return pkcs.CKR_OPERATION_NOT_INITIALIZED;
-    }
+    current_session.assertOperation(session.Operation.Digest) catch |err|
+        return pkcs_error.toRV(err);
 
     if (part == null) {
         current_session.resetDigestSession(state.allocator);
@@ -154,9 +152,8 @@ pub export fn digestFinal(
     const current_session = session.getSession(session_handle, false) catch |err|
         return pkcs_error.toRV(err);
 
-    if (!current_session.digest_initialized) {
-        return pkcs.CKR_OPERATION_NOT_INITIALIZED;
-    }
+    current_session.assertOperation(session.Operation.Digest) catch |err|
+        return pkcs_error.toRV(err);
 
     const required_digest_size = current_session.hasher.digestLength();
     if (data_digest == null) {

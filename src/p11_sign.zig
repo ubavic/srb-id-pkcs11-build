@@ -19,9 +19,8 @@ pub export fn signInit(
         return pkcs.CKR_ARGUMENTS_BAD;
     }
 
-    if (current_session.sign_initialized) {
-        return pkcs.CKR_OPERATION_ACTIVE;
-    }
+    current_session.assertNoOperation() catch |err|
+        return pkcs_error.toRV(err);
 
     var hash_mechanism: hasher.HasherType = undefined;
     var use_hasher = false;
@@ -59,13 +58,12 @@ pub export fn signInit(
     }
 
     if (use_hasher) {
-        current_session.digest_initialized = true;
         current_session.hasher = hasher.createAndInit(hash_mechanism, state.allocator) catch
             return pkcs.CKR_HOST_MEMORY;
     }
 
     current_session.key = key; // TODO: validate key handle
-    current_session.sign_initialized = true;
+    current_session.operation = session.Operation.Sign;
 
     return pkcs.CKR_OK;
 }
@@ -80,9 +78,8 @@ pub export fn sign(
     const current_session = session.getSession(session_handle, true) catch |err|
         return pkcs_error.toRV(err);
 
-    if (!current_session.sign_initialized) {
-        return pkcs.CKR_OPERATION_NOT_INITIALIZED;
-    }
+    current_session.assertOperation(session.Operation.Sign) catch |err|
+        return pkcs_error.toRV(err);
 
     if (current_session.multipart_operation) {
         current_session.resetSignSession(state.allocator);
@@ -134,9 +131,8 @@ pub export fn signUpdate(
     const current_session = session.getSession(session_handle, true) catch |err|
         return pkcs_error.toRV(err);
 
-    if (!current_session.sign_initialized) {
-        return pkcs.CKR_OPERATION_NOT_INITIALIZED;
-    }
+    current_session.assertOperation(session.Operation.Sign) catch |err|
+        return pkcs_error.toRV(err);
 
     if (part == null) {
         current_session.resetSignSession(state.allocator);
@@ -159,9 +155,8 @@ pub export fn signFinal(
     const current_session = session.getSession(session_handle, true) catch |err|
         return pkcs_error.toRV(err);
 
-    if (!current_session.sign_initialized) {
-        return pkcs.CKR_OPERATION_NOT_INITIALIZED;
-    }
+    current_session.assertOperation(session.Operation.Sign) catch |err|
+        return pkcs_error.toRV(err);
 
     const required_signature_size = current_session.signatureSize();
     if (signature == null) {
@@ -230,9 +225,8 @@ pub export fn verifyInit(
         return pkcs.CKR_ARGUMENTS_BAD;
     }
 
-    if (current_session.verify_initialized) {
-        return pkcs.CKR_OPERATION_ACTIVE;
-    }
+    current_session.assertNoOperation() catch |err|
+        return pkcs_error.toRV(err);
 
     var hash_mechanism: hasher.HasherType = undefined;
     var use_hasher = false;
@@ -270,13 +264,12 @@ pub export fn verifyInit(
     }
 
     if (use_hasher) {
-        current_session.digest_initialized = true;
         current_session.hasher = hasher.createAndInit(hash_mechanism, state.allocator) catch
             return pkcs.CKR_HOST_MEMORY;
     }
 
     current_session.key = key;
-    current_session.verify_initialized = true;
+    current_session.operation = session.Operation.Verify;
 
     return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
 }
@@ -291,9 +284,8 @@ pub export fn verify(
     const current_session = session.getSession(session_handle, true) catch |err|
         return pkcs_error.toRV(err);
 
-    if (!current_session.verify_initialized) {
-        return pkcs.CKR_OPERATION_NOT_INITIALIZED;
-    }
+    current_session.assertOperation(session.Operation.Verify) catch |err|
+        return pkcs_error.toRV(err);
 
     if (current_session.multipart_operation) {
         current_session.resetSignSession(state.allocator);
@@ -318,9 +310,8 @@ pub export fn verifyUpdate(
     const current_session = session.getSession(session_handle, true) catch |err|
         return pkcs_error.toRV(err);
 
-    if (!current_session.verify_initialized) {
-        return pkcs.CKR_OPERATION_NOT_INITIALIZED;
-    }
+    current_session.assertOperation(session.Operation.Verify) catch |err|
+        return pkcs_error.toRV(err);
 
     if (part == null) {
         current_session.resetSignSession(state.allocator);
@@ -341,9 +332,8 @@ pub export fn verifyFinal(
     const current_session = session.getSession(session_handle, true) catch |err|
         return pkcs_error.toRV(err);
 
-    if (!current_session.verify_initialized) {
-        return pkcs.CKR_OPERATION_NOT_INITIALIZED;
-    }
+    current_session.assertOperation(session.Operation.Verify) catch |err|
+        return pkcs_error.toRV(err);
 
     //TODO: Implementation
 

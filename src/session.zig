@@ -22,6 +22,15 @@ var next_session_id: pkcs.CK_SESSION_HANDLE = 1;
 
 var sessions: std.AutoHashMap(pkcs.CK_SESSION_HANDLE, Session) = undefined;
 
+pub const Operation = enum {
+    None,
+    Digest,
+    Sign,
+    Verify,
+    Encrypt,
+    Decrypt,
+};
+
 pub const Session = struct {
     id: pkcs.CK_SESSION_HANDLE,
     card: smart_card.Card,
@@ -29,9 +38,7 @@ pub const Session = struct {
     logged_in: bool = false,
     closed: bool = false,
     write_enabled: bool,
-    sign_initialized: bool = false,
-    verify_initialized: bool = false,
-    digest_initialized: bool = false,
+    operation: Operation = Operation.None,
     multipart_operation: bool = false,
     key: pkcs.CK_OBJECT_HANDLE = 0,
     hasher: hasher.Hasher = undefined,
@@ -44,6 +51,20 @@ pub const Session = struct {
         self.logged_in = false;
     }
 
+    pub fn assertNoOperation(self: *Session) PkcsError!void {
+        if (self.operation != Operation.None)
+            return PkcsError.OperationActive;
+    }
+
+    pub fn assertOperation(self: *Session, operation: Operation) PkcsError!void {
+        if (self.operation != operation) {
+            return if (self.operation == Operation.None)
+                PkcsError.OperationNotInitialized
+            else
+                PkcsError.OperationActive;
+        }
+    }
+
     pub fn slot(self: *Session) void {
         return self.card.reader_id;
     }
@@ -54,9 +75,9 @@ pub const Session = struct {
     }
 
     pub fn resetDigestSession(self: *Session, allocator: std.mem.Allocator) void {
-        self.digest_initialized = false;
         self.multipart_operation = false;
         self.hasher.destroy(allocator);
+        self.operation = Operation.None;
     }
 
     pub fn signatureSize(self: *Session) usize {
