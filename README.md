@@ -2,6 +2,12 @@
 
 This is an attempt to provide open source [PKCS11 v2.40](https://docs.oasis-open.org/pkcs11/pkcs11-base/v2.40/pkcs11-base-v2.40.html) module for Serbian ID smart cards produced by Gemalto. Module should provide at least functionalities that would enable user to log into state portals (like [eUprava](https://euprava.gov.rs/) ili [ePorezi](https://eporezi.purs.gov.rs/user/login.html)).
 
+## Status
+
+The module is in the early development phase. All digest functions are implemented (except RIPEMD160), and the foundation for sign and verify functions is set up. Session and token management functions are generally implemented (except for login and logout). The biggest remaining task is the implementation of object management functions.
+
+Functions for security officers are not planned for implementation (at least for now). These are not needed for end users, and the module is much simpler without them.
+
 ## Compilation
 
 First, download PKCS11 headers:
