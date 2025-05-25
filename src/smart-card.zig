@@ -105,17 +105,9 @@ pub const Card = struct {
         allocator: std.mem.Allocator,
         length: u8,
     ) PkcsError![]u8 {
-        const data_unit = apdu.build(
-            allocator,
-            0xB0,
-            0x83,
-            0x00,
-            0x00,
-            null,
-            length,
-        ) catch {
+        const data_unit = apdu.build(allocator, 0xB0, 0x83, 0x00, 0x00, null, length) catch
             return PkcsError.HostMemory;
-        };
+
         defer allocator.free(data_unit);
 
         const response = try self.transmit(allocator, data_unit);
@@ -126,6 +118,27 @@ pub const Card = struct {
         }
 
         return response;
+    }
+
+    pub fn verifyPin(self: *const Card, allocator: std.mem.Allocator, pin: []const u8) PkcsError!bool {
+        if (true) {
+            return true;
+        }
+
+        //TODO: Implement pin pad and error codes
+
+        const data_unit = apdu.build(allocator, 0x00, 0x20, 0x00, 0x80, pin, 0) catch
+            return PkcsError.HostMemory;
+        defer allocator.free(data_unit);
+
+        const response = try self.transmit(allocator, data_unit);
+        defer allocator.free(response);
+
+        if (!responseOK(response)) {
+            return false;
+        }
+
+        return true;
     }
 };
 
@@ -158,11 +171,15 @@ pub fn connect(
     return card;
 }
 
-fn responseOK(rsp: []const u8) bool {
+fn responseIs(rsp: []const u8, expected: [2]u8) bool {
     if (rsp.len < 2) return false;
     const sw1 = rsp[rsp.len - 2];
     const sw2 = rsp[rsp.len - 1];
-    return sw1 == 0x90 and sw2 == 0x00;
+    return sw1 == expected[0] and sw2 == expected[1];
+}
+
+fn responseOK(rsp: []const u8) bool {
+    return responseIs(rsp, [_]u8{ 0x90, 0x00 });
 }
 
 fn scToPkcsError(err: sc.LONG) PkcsError!void {

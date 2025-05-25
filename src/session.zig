@@ -35,20 +35,27 @@ pub const Session = struct {
     id: pkcs.CK_SESSION_HANDLE,
     card: smart_card.Card,
     reader_id: pkcs.CK_SLOT_ID,
-    logged_in: bool = false,
     closed: bool = false,
     write_enabled: bool,
     operation: Operation = Operation.None,
     multipart_operation: bool = false,
     key: pkcs.CK_OBJECT_HANDLE = 0,
     hasher: hasher.Hasher = undefined,
+    pin: [8]u8 = undefined,
 
-    pub fn login(self: *Session) !void {
-        self.logged_in = true;
+    pub fn login(self: *Session, allocator: std.mem.Allocator, new_pin: []const u8) PkcsError!void {
+        errdefer reader.setUserType(self.reader_id, reader.UserType.None);
+        const verified = try self.card.verifyPin(allocator, new_pin);
+        const user_status = if (verified) reader.UserType.User else reader.UserType.None;
+        reader.setUserType(self.reader_id, user_status);
     }
 
     pub fn logout(self: *Session) void {
-        self.logged_in = false;
+        reader.setUserType(self.reader_id, reader.UserType.None);
+    }
+
+    pub fn loggedIn(self: *Session) bool {
+        return reader.getUserType(self.reader_id) != reader.UserType.None;
     }
 
     pub fn assertNoOperation(self: *Session) PkcsError!void {
@@ -167,7 +174,7 @@ pub fn getSession(
 
     const current_session = session_entry.?;
 
-    if (login_required and !current_session.logged_in)
+    if (login_required and !current_session.loggedIn())
         return PkcsError.UserNotLoggedIn;
 
     return current_session;

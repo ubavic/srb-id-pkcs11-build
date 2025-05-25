@@ -118,22 +118,40 @@ pub export fn setOperationState(
     return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
 }
 
-pub export fn login(
+pub export fn sessionLogin(
     session_handle: pkcs.CK_SESSION_HANDLE,
     user_type: pkcs.CK_USER_TYPE,
     pin: ?[*]const pkcs.CK_UTF8CHAR,
     pin_length: pkcs.CK_ULONG,
 ) pkcs.CK_RV {
-    _ = session_handle;
-    _ = user_type;
-    _ = pin;
-    _ = pin_length;
+    const current_session = session.getSession(session_handle, false) catch |err|
+        return pkcs_error.toRV(err);
 
-    return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
+    // Difference form the standard.
+    if (user_type != pkcs.CKU_USER)
+        return pkcs.CKR_USER_TYPE_INVALID;
+
+    if (pin == null)
+        return pkcs.CKR_ARGUMENTS_BAD;
+
+    if (current_session.loggedIn())
+        return pkcs.CKR_USER_ALREADY_LOGGED_IN;
+
+    const pin_casted: [*]const u8 = @ptrCast(pin);
+    current_session.login(state.allocator, pin_casted[0..pin_length]) catch |err|
+        return pkcs_error.toRV(err);
+
+    return pkcs.CKR_OK;
 }
 
-pub export fn logout(session_handle: pkcs.CK_SESSION_HANDLE) pkcs.CK_RV {
-    _ = session_handle;
+pub export fn sessionLogout(session_handle: pkcs.CK_SESSION_HANDLE) pkcs.CK_RV {
+    const current_session = session.getSession(session_handle, false) catch |err|
+        return pkcs_error.toRV(err);
 
-    return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
+    if (!current_session.loggedIn())
+        return pkcs.CKR_USER_NOT_LOGGED_IN;
+
+    current_session.logout();
+
+    return pkcs.CKR_OK;
 }

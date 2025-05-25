@@ -14,11 +14,18 @@ var next_reader_id: pkcs.CK_SLOT_ID = 1;
 
 pub var reader_states: std.AutoHashMap(pkcs.CK_SLOT_ID, ReaderState) = undefined;
 
+pub const UserType = enum {
+    None,
+    User,
+    SecurityOfficer,
+};
+
 pub const ReaderState = struct {
     name: []const u8,
     active: bool,
     card_present: bool,
     recognized: bool,
+    user_type: UserType,
 
     pub fn refreshCardPresent(self: *ReaderState, smart_card_context_handle: sc.SCARDHANDLE) pkcs.CK_RV {
         var card_handle: sc.SCARDHANDLE = 0;
@@ -155,6 +162,7 @@ pub fn addIfNotExists(allocator: std.mem.Allocator, reader_name: [*:0]const u8) 
             .active = true,
             .card_present = false,
             .recognized = true, // TODO
+            .user_type = UserType.None,
         },
     );
 
@@ -188,4 +196,20 @@ fn parseMultiString(allocator: std.mem.Allocator, input: [*:0]const u8) ![][:0]c
     }
 
     return try list.toOwnedSlice();
+}
+
+pub fn setUserType(slot_id: pkcs.CK_SLOT_ID, user_type: UserType) void {
+    const reader_entry = reader_states.getPtr(slot_id);
+    if (reader_entry == null)
+        return;
+
+    reader_entry.?.*.user_type = user_type;
+}
+
+pub fn getUserType(slot_id: pkcs.CK_SLOT_ID) UserType {
+    const reader_entry = reader_states.get(slot_id);
+    if (reader_entry == null)
+        return UserType.None;
+
+    return reader_entry.?.user_type;
 }
