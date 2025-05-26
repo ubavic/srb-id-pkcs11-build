@@ -12,6 +12,7 @@ const sc = @cImport({
 
 const state = @import("state.zig");
 const reader = @import("reader.zig");
+const pkcs_error = @import("pkcs_error.zig");
 
 pub export fn getSlotList(token_present: pkcs.CK_BBOOL, slot_list: ?[*]pkcs.CK_SLOT_ID, slot_count: ?*pkcs.CK_ULONG) pkcs.CK_RV {
     if (!state.initialized)
@@ -21,10 +22,8 @@ pub export fn getSlotList(token_present: pkcs.CK_BBOOL, slot_list: ?[*]pkcs.CK_S
         return pkcs.CKR_ARGUMENTS_BAD;
 
     if (slot_list == null) {
-        const r = reader.refreshStatuses(state.allocator, state.smart_card_context_handle);
-        if (r != pkcs.CKR_OK) {
-            return r;
-        }
+        reader.refreshStatuses(state.allocator, state.smart_card_context_handle) catch |err|
+            return pkcs_error.toRV(err);
     }
 
     const only_with_token = token_present == pkcs.CK_TRUE;
@@ -71,10 +70,8 @@ pub export fn getSlotInfo(slot_ID: pkcs.CK_SLOT_ID, slot_info: ?*pkcs.CK_SLOT_IN
     reader_state.writeShortName(&slot_info.?.slotDescription);
     @memset(&slot_info.?.manufacturerID, ' ');
 
-    const rv = reader_state.refreshCardPresent(state.smart_card_context_handle);
-    if (rv != pkcs.CKR_OK) {
-        return pkcs.CKR_OK;
-    }
+    reader_state.refreshCardPresent(state.smart_card_context_handle) catch |err|
+        return pkcs_error.toRV(err);
 
     slot_info.?.flags = pkcs.CKF_HW_SLOT | pkcs.CKF_REMOVABLE_DEVICE;
     if (reader_state.card_present)
@@ -103,10 +100,8 @@ pub export fn getTokenInfo(slot_id: pkcs.CK_SLOT_ID, token_info: ?*pkcs.CK_TOKEN
 
     var reader_state = reader_entry.?;
 
-    const rv = reader_state.refreshCardPresent(state.smart_card_context_handle);
-    if (rv != pkcs.CKR_OK) {
-        return pkcs.CKR_OK;
-    }
+    reader_state.refreshCardPresent(state.smart_card_context_handle) catch |err|
+        return pkcs_error.toRV(err);
 
     token_info.?.ulTotalPublicMemory = pkcs.CK_UNAVAILABLE_INFORMATION;
     token_info.?.ulFreePublicMemory = pkcs.CK_UNAVAILABLE_INFORMATION;

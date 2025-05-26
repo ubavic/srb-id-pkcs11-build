@@ -4,6 +4,8 @@ const pkcs = @cImport({
     @cInclude("pkcs.h");
 });
 
+const PkcsError = @import("pkcs_error.zig").PkcsError;
+
 const sc = @cImport({
     @cInclude("pcsclite.h");
     @cInclude("winscard.h");
@@ -27,7 +29,7 @@ pub const ReaderState = struct {
     recognized: bool,
     user_type: UserType,
 
-    pub fn refreshCardPresent(self: *ReaderState, smart_card_context_handle: sc.SCARDHANDLE) pkcs.CK_RV {
+    pub fn refreshCardPresent(self: *ReaderState, smart_card_context_handle: sc.SCARDHANDLE) PkcsError!void {
         var card_handle: sc.SCARDHANDLE = 0;
         var active_protocol: sc.DWORD = 0;
 
@@ -48,11 +50,9 @@ pub const ReaderState = struct {
             sc.SCARD_E_NO_SMARTCARD => {
                 self.card_present = false;
             },
-            sc.SCARD_W_UNPOWERED_CARD, sc.SCARD_W_UNRESPONSIVE_CARD, sc.SCARD_E_READER_UNAVAILABLE => return pkcs.CKR_DEVICE_ERROR,
-            else => return pkcs.CKR_GENERAL_ERROR,
+            sc.SCARD_W_UNPOWERED_CARD, sc.SCARD_W_UNRESPONSIVE_CARD, sc.SCARD_E_READER_UNAVAILABLE => return PkcsError.DeviceError,
+            else => return PkcsError.GeneralError,
         }
-
-        return pkcs.CKR_OK;
     }
 
     pub fn writeShortName(self: *const ReaderState, output: []u8) void {
@@ -93,7 +93,7 @@ pub const ReaderState = struct {
     }
 };
 
-pub fn refreshStatuses(allocator: std.mem.Allocator, smart_card_context_handle: sc.SCARDHANDLE) pkcs.CK_RV {
+pub fn refreshStatuses(allocator: std.mem.Allocator, smart_card_context_handle: sc.SCARDHANDLE) PkcsError!void {
     var readers_multi_string: [*c]u8 = null;
     var readers: sc.DWORD = sc.SCARD_AUTOALLOCATE;
 
@@ -106,9 +106,9 @@ pub fn refreshStatuses(allocator: std.mem.Allocator, smart_card_context_handle: 
 
     if (rv1 != sc.SCARD_S_SUCCESS and rv1 != sc.SCARD_E_NO_READERS_AVAILABLE) {
         if (rv1 == sc.SCARD_E_NO_MEMORY)
-            return pkcs.CKR_HOST_MEMORY;
+            return PkcsError.HostMemory;
 
-        return pkcs.CKR_GENERAL_ERROR;
+        return PkcsError.GeneralError;
     }
 
     defer _ = sc.SCardFreeMemory(smart_card_context_handle, readers_multi_string);
@@ -117,12 +117,12 @@ pub fn refreshStatuses(allocator: std.mem.Allocator, smart_card_context_handle: 
 
     if (rv1 != sc.SCARD_E_NO_READERS_AVAILABLE) {
         const reader_names = parseMultiString(allocator, readers_multi_string) catch {
-            return pkcs.CKR_GENERAL_ERROR;
+            return PkcsError.GeneralError;
         };
 
         for (reader_names) |reader_name| {
             addIfNotExists(allocator, reader_name) catch {
-                return pkcs.CKR_GENERAL_ERROR;
+                return PkcsError.GeneralError;
             };
         }
     }
@@ -132,16 +132,11 @@ pub fn refreshStatuses(allocator: std.mem.Allocator, smart_card_context_handle: 
         if (!reader_state_entry.value_ptr.active)
             continue;
 
-        const rv = reader_state_entry.value_ptr.*.refreshCardPresent(smart_card_context_handle);
-        if (rv != pkcs.CKR_OK) {
-            return rv;
-        }
+        try reader_state_entry.value_ptr.*.refreshCardPresent(smart_card_context_handle);
     }
-
-    return pkcs.CKR_OK;
 }
 
-pub fn addIfNotExists(allocator: std.mem.Allocator, reader_name: [*:0]const u8) !void {
+pub fn addIfNotExists(allocator: std.mem.Allocator, reader_name: [*:0]const u8) std.mem.Allocator.Error!void {
     const reader_name_slice = std.mem.sliceTo(reader_name, 0);
 
     var iter = reader_states.iterator();
@@ -177,7 +172,7 @@ fn resetStates() void {
     }
 }
 
-fn parseMultiString(allocator: std.mem.Allocator, input: [*:0]const u8) ![][:0]const u8 {
+fn parseMultiString(allocator: std.mem.Allocator, input: [*:0]const u8) std.mem.Allocator.Error![][:0]const u8 {
     var list = std.ArrayList([:0]const u8).init(allocator);
     errdefer list.deinit();
 
