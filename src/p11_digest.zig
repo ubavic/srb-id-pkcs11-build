@@ -46,7 +46,7 @@ pub export fn digestInit(
     current_session.assertNoOperation() catch |err|
         return pkcs_error.toRV(err);
 
-    current_session.hasher = hasher.createAndInit(hash_mechanism, state.allocator) catch
+    current_session.hasher = hasher.createAndInit(hash_mechanism, current_session.allocator) catch
         return pkcs.CKR_HOST_MEMORY;
 
     current_session.operation = session.Operation.Digest;
@@ -68,12 +68,12 @@ pub export fn digest(
         return pkcs_error.toRV(err);
 
     if (current_session.multipart_operation) {
-        current_session.resetDigestSession(state.allocator);
+        current_session.resetDigestSession();
         return pkcs.CKR_FUNCTION_CANCELED;
     }
 
     if (data_digest_len == null) {
-        current_session.resetDigestSession(state.allocator);
+        current_session.resetDigestSession();
         return pkcs.CKR_ARGUMENTS_BAD;
     }
 
@@ -84,7 +84,7 @@ pub export fn digest(
     }
 
     if (data == null) {
-        current_session.resetDigestSession(state.allocator);
+        current_session.resetDigestSession();
         return pkcs.CKR_ARGUMENTS_BAD;
     }
 
@@ -95,17 +95,17 @@ pub export fn digest(
     const casted_data: [*]u8 = @ptrCast(data);
 
     current_session.hasher.update(casted_data[0..data_len]);
-    const computed_digest = current_session.hasher.finalize(state.allocator) catch {
-        current_session.resetDigestSession(state.allocator);
+    const computed_digest = current_session.hasher.finalize(current_session.allocator) catch {
+        current_session.resetDigestSession();
         return pkcs.CKR_HOST_MEMORY;
     };
 
     const data_digest_casted: [*]u8 = @ptrCast(data_digest);
 
     @memcpy(data_digest_casted, computed_digest);
-    state.allocator.free(computed_digest);
+    current_session.allocator.free(computed_digest);
 
-    current_session.resetDigestSession(state.allocator);
+    current_session.resetDigestSession();
 
     return pkcs.CKR_OK;
 }
@@ -122,7 +122,7 @@ pub export fn digestUpdate(
         return pkcs_error.toRV(err);
 
     if (part == null) {
-        current_session.resetDigestSession(state.allocator);
+        current_session.resetDigestSession();
         return pkcs.CKR_ARGUMENTS_BAD;
     }
 
@@ -165,17 +165,17 @@ pub export fn digestFinal(
         return pkcs.CKR_BUFFER_TOO_SMALL;
     }
 
-    const computed_digest = current_session.hasher.finalize(state.allocator) catch {
-        current_session.resetDigestSession(state.allocator);
+    const computed_digest = current_session.hasher.finalize(current_session.allocator) catch {
+        current_session.resetDigestSession();
         return pkcs.CKR_HOST_MEMORY;
     };
 
     const data_digest_casted: [*]u8 = @ptrCast(data_digest);
 
     @memcpy(data_digest_casted, computed_digest);
-    state.allocator.free(computed_digest);
+    current_session.allocator.free(computed_digest);
 
-    current_session.resetDigestSession(state.allocator);
+    current_session.resetDigestSession();
 
     return pkcs.CKR_OK;
 }

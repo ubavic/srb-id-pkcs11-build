@@ -42,10 +42,11 @@ pub const Session = struct {
     key: pkcs.CK_OBJECT_HANDLE = 0,
     hasher: hasher.Hasher = undefined,
     pin: [8]u8 = undefined,
+    allocator: std.mem.Allocator,
 
-    pub fn login(self: *Session, allocator: std.mem.Allocator, new_pin: []const u8) PkcsError!void {
+    pub fn login(self: *Session, new_pin: []const u8) PkcsError!void {
         errdefer reader.setUserType(self.reader_id, reader.UserType.None);
-        const verified = try self.card.verifyPin(allocator, new_pin);
+        const verified = try self.card.verifyPin(self.allocator, new_pin);
         const user_status = if (verified) reader.UserType.User else reader.UserType.None;
         reader.setUserType(self.reader_id, user_status);
     }
@@ -76,14 +77,14 @@ pub const Session = struct {
         return self.card.reader_id;
     }
 
-    pub fn resetSignSession(self: *Session, allocator: std.mem.Allocator) void {
+    pub fn resetSignSession(self: *Session) void {
         self.key = 0;
-        self.resetDigestSession(allocator);
+        self.resetDigestSession();
     }
 
-    pub fn resetDigestSession(self: *Session, allocator: std.mem.Allocator) void {
+    pub fn resetDigestSession(self: *Session) void {
         self.multipart_operation = false;
-        self.hasher.destroy(allocator);
+        self.hasher.destroy(self.allocator);
         self.operation = Operation.None;
     }
 
@@ -100,10 +101,8 @@ pub const Session = struct {
 
     pub fn signFinalize(
         self: *Session,
-        allocator: std.mem.Allocator,
     ) std.mem.Allocator.Error![]u8 {
         _ = self;
-        _ = allocator;
         unreachable;
     }
 
@@ -128,6 +127,7 @@ pub fn initSessions(allocator: std.mem.Allocator) void {
 }
 
 pub fn newSession(
+    allocator: std.mem.Allocator,
     slot_id: pkcs.CK_SESSION_HANDLE,
     write_enabled: bool,
 ) PkcsError!pkcs.CK_SESSION_HANDLE {
@@ -141,7 +141,7 @@ pub fn newSession(
     const reader_state = reader_entry.?;
 
     const card = try smart_card.connect(
-        state.allocator,
+        allocator,
         state.smart_card_context_handle,
         reader_state.name,
     );
@@ -153,6 +153,7 @@ pub fn newSession(
             .card = card,
             .reader_id = slot_id,
             .write_enabled = write_enabled,
+            .allocator = allocator,
         },
     ) catch {
         return PkcsError.HostMemory;
@@ -186,16 +187,16 @@ pub fn closeSession(session_handle: pkcs.CK_SESSION_HANDLE) PkcsError!void {
         return PkcsError.SessionHandleInvalid;
     }
 
-    const session = session_entry.?;
+    const current_session = session_entry.?;
 
-    if (session.closed)
+    if (current_session.closed)
         return PkcsError.SessionClosed;
 
-    session.closed = true;
+    current_session.closed = true;
 
-    session.hasher.destroy(state.allocator);
+    current_session.hasher.destroy(current_session.allocator);
 
-    _ = session.card.disconnect() catch {};
+    _ = current_session.card.disconnect() catch {};
 
     _ = sessions.remove(session_handle);
 }

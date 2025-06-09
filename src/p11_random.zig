@@ -33,7 +33,7 @@ pub export fn generateRandom(
     while (i < random_size) {
         const segment_size: u8 = @min(128, remaining_size);
 
-        const segment = current_session.card.readRandom(state.allocator, segment_size) catch |err|
+        const segment = current_session.card.readRandom(current_session.allocator, segment_size) catch |err|
             return pkcs_error.toRV(err);
 
         std.mem.copyForwards(u8, random_data[i .. i + segment_size], segment[0..segment_size]);
@@ -41,7 +41,7 @@ pub export fn generateRandom(
         i += segment_size;
         remaining_size -= segment_size;
 
-        state.allocator.free(segment);
+        current_session.allocator.free(segment);
     }
 
     return pkcs.CKR_OK;

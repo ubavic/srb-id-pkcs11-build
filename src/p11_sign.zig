@@ -58,7 +58,7 @@ pub export fn signInit(
     }
 
     if (use_hasher) {
-        current_session.hasher = hasher.createAndInit(hash_mechanism, state.allocator) catch
+        current_session.hasher = hasher.createAndInit(hash_mechanism, current_session.allocator) catch
             return pkcs.CKR_HOST_MEMORY;
     }
 
@@ -82,12 +82,12 @@ pub export fn sign(
         return pkcs_error.toRV(err);
 
     if (current_session.multipart_operation) {
-        current_session.resetSignSession(state.allocator);
+        current_session.resetSignSession();
         return pkcs.CKR_FUNCTION_CANCELED;
     }
 
     if (signature_len == null) {
-        current_session.resetSignSession(state.allocator);
+        current_session.resetSignSession();
         return pkcs.CKR_ARGUMENTS_BAD;
     }
 
@@ -98,7 +98,7 @@ pub export fn sign(
     }
 
     if (data == null) {
-        current_session.resetSignSession(state.allocator);
+        current_session.resetSignSession();
         return pkcs.CKR_ARGUMENTS_BAD;
     }
 
@@ -108,17 +108,17 @@ pub export fn sign(
 
     const casted_data: [*]u8 = @ptrCast(data);
     current_session.signUpdate(casted_data[0..data_len]);
-    const computed_signature = current_session.signFinalize(state.allocator) catch {
-        current_session.resetSignSession(state.allocator);
+    const computed_signature = current_session.signFinalize() catch {
+        current_session.resetSignSession();
         return pkcs.CKR_HOST_MEMORY;
     };
 
     const signature_casted: [*]u8 = @ptrCast(signature);
 
     @memcpy(signature_casted, computed_signature);
-    state.allocator.free(computed_signature);
+    current_session.allocator.free(computed_signature);
 
-    current_session.resetSignSession(state.allocator);
+    current_session.resetSignSession();
 
     return pkcs.CKR_OK;
 }
@@ -135,7 +135,7 @@ pub export fn signUpdate(
         return pkcs_error.toRV(err);
 
     if (part == null) {
-        current_session.resetSignSession(state.allocator);
+        current_session.resetSignSession();
         return pkcs.CKR_ARGUMENTS_BAD;
     }
 
@@ -168,17 +168,17 @@ pub export fn signFinal(
         return pkcs.CKR_BUFFER_TOO_SMALL;
     }
 
-    const computed_signature = current_session.signFinalize(state.allocator) catch {
-        current_session.resetSignSession(state.allocator);
+    const computed_signature = current_session.signFinalize() catch {
+        current_session.resetSignSession();
         return pkcs.CKR_HOST_MEMORY;
     };
 
     const signature_casted: [*]u8 = @ptrCast(signature);
 
     @memcpy(signature_casted, computed_signature);
-    state.allocator.free(computed_signature);
+    current_session.allocator.free(computed_signature);
 
-    current_session.resetSignSession(state.allocator);
+    current_session.resetSignSession();
     return pkcs.CKR_OK;
 }
 
@@ -264,7 +264,7 @@ pub export fn verifyInit(
     }
 
     if (use_hasher) {
-        current_session.hasher = hasher.createAndInit(hash_mechanism, state.allocator) catch
+        current_session.hasher = hasher.createAndInit(hash_mechanism, current_session.allocator) catch
             return pkcs.CKR_HOST_MEMORY;
     }
 
@@ -288,7 +288,7 @@ pub export fn verify(
         return pkcs_error.toRV(err);
 
     if (current_session.multipart_operation) {
-        current_session.resetSignSession(state.allocator);
+        current_session.resetSignSession();
         return pkcs.CKR_FUNCTION_CANCELED;
     }
 
@@ -314,7 +314,7 @@ pub export fn verifyUpdate(
         return pkcs_error.toRV(err);
 
     if (part == null) {
-        current_session.resetSignSession(state.allocator);
+        current_session.resetSignSession();
         return pkcs.CKR_ARGUMENTS_BAD;
     }
 
