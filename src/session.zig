@@ -10,6 +10,7 @@ const sc = @cImport({
     @cInclude("wintypes.h");
 });
 
+const object = @import("object.zig");
 const hasher = @import("hasher.zig");
 const pkcs_error = @import("pkcs_error.zig");
 const reader = @import("reader.zig");
@@ -29,6 +30,7 @@ pub const Operation = enum {
     Verify,
     Encrypt,
     Decrypt,
+    Search,
 };
 
 pub const Session = struct {
@@ -43,6 +45,9 @@ pub const Session = struct {
     hasher: hasher.Hasher = undefined,
     pin: [8]u8 = undefined,
     allocator: std.mem.Allocator,
+    objects: []object.Object,
+    search_index: usize = 0,
+    found_objects: ?[]pkcs.CK_OBJECT_HANDLE = null,
 
     pub fn login(self: *Session, new_pin: []const u8) PkcsError!void {
         errdefer reader.setUserType(self.reader_id, reader.UserType.None);
@@ -120,6 +125,14 @@ pub const Session = struct {
         _ = allocator;
         unreachable;
     }
+
+    pub fn findObjects(
+        self: *Session,
+        attributes: []object.Attribute,
+    ) PkcsError!void {
+        _ = self;
+        _ = attributes;
+    }
 };
 
 pub fn initSessions(allocator: std.mem.Allocator) void {
@@ -146,6 +159,10 @@ pub fn newSession(
         reader_state.name,
     );
 
+    // TODO: Load and parse certificates
+    const objects: []object.Object = allocator.alloc(object.Object, 0) catch
+        return PkcsError.HostMemory;
+
     sessions.put(
         session_id,
         Session{
@@ -154,6 +171,7 @@ pub fn newSession(
             .reader_id = slot_id,
             .write_enabled = write_enabled,
             .allocator = allocator,
+            .objects = objects,
         },
     ) catch {
         return PkcsError.HostMemory;
