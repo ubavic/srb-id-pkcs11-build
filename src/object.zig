@@ -11,7 +11,7 @@ const PkcsError = pkcs_error.PkcsError;
 pub const Object = union(enum) {
     certificate: CertificateObject,
     private_key: PrivateKeyObject,
-    PublicKeyObject: PrivateKeyObject,
+    public_key: PublicKeyObject,
 };
 
 pub const CertificateObject = struct {
