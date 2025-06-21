@@ -34,6 +34,7 @@ pub const Operation = enum {
 };
 
 pub const Session = struct {
+    allocator: std.mem.Allocator,
     id: pkcs.CK_SESSION_HANDLE,
     card: smart_card.Card,
     reader_id: pkcs.CK_SLOT_ID,
@@ -44,7 +45,6 @@ pub const Session = struct {
     key: pkcs.CK_OBJECT_HANDLE = 0,
     hasher: hasher.Hasher = undefined,
     pin: [8]u8 = undefined,
-    allocator: std.mem.Allocator,
     objects: []object.Object,
     search_index: usize = 0,
     found_objects: ?[]pkcs.CK_OBJECT_HANDLE = null,

@@ -15,8 +15,8 @@ pub const Object = union(enum) {
 };
 
 pub const CertificateObject = struct {
-    class: pkcs.CK_OBJECT_CLASS,
     handle: pkcs.CK_OBJECT_HANDLE,
+    class: pkcs.CK_OBJECT_CLASS,
     token: pkcs.CK_BBOOL,
     private: pkcs.CK_BBOOL,
     modifiable: pkcs.CK_BBOOL,
@@ -54,8 +54,8 @@ pub const CertificateObject = struct {
 };
 
 pub const PrivateKeyObject = struct {
-    class: pkcs.CK_OBJECT_CLASS,
     handle: pkcs.CK_OBJECT_HANDLE,
+    class: pkcs.CK_OBJECT_CLASS,
     token: pkcs.CK_BBOOL,
     private: pkcs.CK_BBOOL,
     modifiable: pkcs.CK_BBOOL,
@@ -96,8 +96,8 @@ pub const PrivateKeyObject = struct {
 };
 
 pub const PublicKeyObject = struct {
-    class: pkcs.CK_OBJECT_CLASS,
     handle: pkcs.CK_OBJECT_HANDLE,
+    class: pkcs.CK_OBJECT_CLASS,
     token: pkcs.CK_BBOOL,
     private: pkcs.CK_BBOOL,
     modifiable: pkcs.CK_BBOOL,
