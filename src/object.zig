@@ -12,6 +12,34 @@ pub const Object = union(enum) {
     certificate: CertificateObject,
     private_key: PrivateKeyObject,
     public_key: PublicKeyObject,
+
+    pub fn handle(self: *const Object) pkcs.CK_OBJECT_HANDLE {
+        return switch (self.*) {
+            .certificate => |o| o.handle,
+            .private_key => |o| o.handle,
+            .public_key => |o| o.handle,
+        };
+    }
+
+    pub fn getAttribute(self: *const Object, allocator: std.mem.Allocator, attribute_type: pkcs.CK_ATTRIBUTE_TYPE) PkcsError!Attribute {
+        const value = try switch (self.*) {
+            .certificate => |o| o.getAttributeValue(allocator, attribute_type),
+            .private_key => |o| o.getAttributeValue(allocator, attribute_type),
+            .public_key => |o| o.getAttributeValue(allocator, attribute_type),
+        };
+
+        return Attribute{
+            .attribute_type = attribute_type,
+            .value = value,
+        };
+    }
+
+    pub fn hasAttributeValue(self: *const Object, allocator: std.mem.Allocator, attribute: Attribute) PkcsError!bool {
+        const object_attribute = try self.getAttribute(allocator, attribute.attribute_type);
+        defer object_attribute.deinit(allocator);
+
+        return std.mem.eql(u8, object_attribute.value, attribute.value);
+    }
 };
 
 pub const CertificateObject = struct {
@@ -50,6 +78,34 @@ pub const CertificateObject = struct {
         allocator.free(self.value);
         allocator.free(self.url);
         allocator.free(self.hash_of_subject_public_key);
+    }
+
+    pub fn getAttributeValue(self: *const CertificateObject, allocator: std.mem.Allocator, attribute_type: pkcs.CK_ATTRIBUTE_TYPE) PkcsError![]u8 {
+        return switch (attribute_type) {
+            pkcs.CKA_CLASS => encodeLong(allocator, self.class),
+            pkcs.CKA_TOKEN => encodeBool(allocator, self.token),
+            pkcs.CKA_PRIVATE => encodeBool(allocator, self.private),
+            pkcs.CKA_MODIFIABLE => encodeBool(allocator, self.modifiable),
+            pkcs.CKA_LABEL => encodeByteArray(allocator, self.label),
+            pkcs.CKA_COPYABLE => encodeBool(allocator, self.copyable),
+            pkcs.CKA_DESTROYABLE => encodeBool(allocator, self.destroyable),
+            pkcs.CKA_CERTIFICATE_TYPE => encodeLong(allocator, self.certificate_type),
+            pkcs.CKA_TRUSTED => encodeBool(allocator, self.trusted),
+            pkcs.CKA_CERTIFICATE_CATEGORY => encodeLong(allocator, self.certificate_category),
+            pkcs.CKA_CHECK_VALUE => encodeByteArray(allocator, self.check_value),
+            pkcs.CKA_START_DATE => encodeDate(allocator, self.start_date),
+            pkcs.CKA_END_DATE => encodeDate(allocator, self.end_date),
+            pkcs.CKA_PUBLIC_KEY_INFO => encodeByteArray(allocator, self.public_key_info),
+            pkcs.CKA_SUBJECT => encodeByteArray(allocator, self.subject),
+            pkcs.CKA_ID => encodeByteArray(allocator, self.id),
+            pkcs.CKA_ISSUER => encodeByteArray(allocator, self.issuer),
+            pkcs.CKA_SERIAL_NUMBER => encodeByteArray(allocator, self.serial_number),
+            pkcs.CKA_VALUE => encodeByteArray(allocator, self.value),
+            pkcs.CKA_URL => encodeByteArray(allocator, self.url),
+            pkcs.CKA_HASH_OF_SUBJECT_PUBLIC_KEY => encodeByteArray(allocator, self.hash_of_subject_public_key),
+            pkcs.CKA_NAME_HASH_ALGORITHM => encodeLong(allocator, self.name_hash_algorithm),
+            else => PkcsError.AttributeTypeInvalid,
+        };
     }
 };
 
@@ -93,6 +149,40 @@ pub const PrivateKeyObject = struct {
         allocator.free(self.always_authenticate);
         allocator.free(self.public_key_info);
     }
+
+    pub fn getAttributeValue(self: *const PrivateKeyObject, allocator: std.mem.Allocator, attribute_type: pkcs.CK_ATTRIBUTE_TYPE) PkcsError![]u8 {
+        return switch (attribute_type) {
+            pkcs.CKA_CLASS => encodeLong(allocator, self.class),
+            pkcs.CKA_TOKEN => encodeBool(allocator, self.token),
+            pkcs.CKA_PRIVATE => encodeBool(allocator, self.private),
+            pkcs.CKA_MODIFIABLE => encodeBool(allocator, self.modifiable),
+            pkcs.CKA_LABEL => encodeByteArray(allocator, self.label),
+            pkcs.CKA_COPYABLE => encodeBool(allocator, self.copyable),
+            pkcs.CKA_DESTROYABLE => encodeBool(allocator, self.destroyable),
+            pkcs.CKA_KEY_TYPE => encodeLong(allocator, self.key_type),
+            pkcs.CKA_ID => encodeByteArray(allocator, self.id),
+            pkcs.CKA_START_DATE => encodeDate(allocator, self.start_date),
+            pkcs.CKA_END_DATE => encodeDate(allocator, self.end_date),
+            pkcs.CKA_DERIVE => encodeBool(allocator, self.derive),
+            pkcs.CKA_LOCAL => encodeBool(allocator, self.local),
+            pkcs.CKA_KEY_GEN_MECHANISM => encodeLong(allocator, self.key_gen_mechanism),
+            pkcs.CKA_ALLOWED_MECHANISMS => unreachable,
+            pkcs.CKA_SUBJECT => encodeByteArray(allocator, self.subject),
+            pkcs.CKA_SENSITIVE => encodeBool(allocator, self.sensitive),
+            pkcs.CKA_DECRYPT => encodeBool(allocator, self.decrypt),
+            pkcs.CKA_SIGN => encodeBool(allocator, self.sign),
+            pkcs.CKA_SIGN_RECOVER => encodeBool(allocator, self.sign_recover),
+            pkcs.CKA_UNWRAP => encodeBool(allocator, self.unwrap),
+            pkcs.CKA_EXTRACTABLE => encodeBool(allocator, self.extractable),
+            pkcs.CKA_ALWAYS_SENSITIVE => encodeBool(allocator, self.always_sensitive),
+            pkcs.CKA_NEVER_EXTRACTABLE => encodeBool(allocator, self.never_extractable),
+            pkcs.CKA_WRAP_WITH_TRUSTED => encodeBool(allocator, self.wrap_with_trusted),
+            pkcs.CKA_UNWRAP_TEMPLATE => unreachable,
+            pkcs.CKA_ALWAYS_AUTHENTICATE => unreachable,
+            pkcs.CKA_PUBLIC_KEY_INFO => encodeByteArray(allocator, self.public_key_info),
+            else => PkcsError.AttributeTypeInvalid,
+        };
+    }
 };
 
 pub const PublicKeyObject = struct {
@@ -128,14 +218,43 @@ pub const PublicKeyObject = struct {
         allocator.free(self.subject);
         allocator.free(self.public_key_info);
     }
+
+    pub fn getAttributeValue(self: *const PublicKeyObject, allocator: std.mem.Allocator, attribute_type: pkcs.CK_ATTRIBUTE_TYPE) PkcsError![]u8 {
+        return switch (attribute_type) {
+            pkcs.CKA_CLASS => encodeLong(allocator, self.class),
+            pkcs.CKA_TOKEN => encodeBool(allocator, self.token),
+            pkcs.CKA_PRIVATE => encodeBool(allocator, self.private),
+            pkcs.CKA_MODIFIABLE => encodeBool(allocator, self.modifiable),
+            pkcs.CKA_LABEL => encodeByteArray(allocator, self.label),
+            pkcs.CKA_COPYABLE => encodeBool(allocator, self.copyable),
+            pkcs.CKA_DESTROYABLE => encodeBool(allocator, self.destroyable),
+            pkcs.CKA_KEY_TYPE => encodeLong(allocator, self.key_type),
+            pkcs.CKA_ID => encodeByteArray(allocator, self.id),
+            pkcs.CKA_START_DATE => encodeDate(allocator, self.start_date),
+            pkcs.CKA_END_DATE => encodeDate(allocator, self.end_date),
+            pkcs.CKA_DERIVE => encodeBool(allocator, self.derive),
+            pkcs.CKA_LOCAL => encodeBool(allocator, self.local),
+            pkcs.CKA_KEY_GEN_MECHANISM => encodeLong(allocator, self.key_gen_mechanism),
+            pkcs.CKA_ALLOWED_MECHANISMS => unreachable,
+            pkcs.CKA_SUBJECT => encodeByteArray(allocator, self.subject),
+            pkcs.CKA_ENCRYPT => encodeBool(allocator, self.encrypt),
+            pkcs.CKA_VERIFY => encodeBool(allocator, self.verify),
+            pkcs.CKA_VERIFY_RECOVER => encodeBool(allocator, self.verify_recover),
+            pkcs.CKA_WRAP => encodeBool(allocator, self.wrap),
+            pkcs.CKA_TRUSTED => encodeBool(allocator, self.trusted),
+            pkcs.CKA_WRAP_TEMPLATE => unreachable,
+            pkcs.CKA_PUBLIC_KEY_INFO => encodeByteArray(allocator, self.public_key_info),
+            else => PkcsError.AttributeTypeInvalid,
+        };
+    }
 };
 
 pub const Attribute = struct {
     attribute_type: pkcs.CK_ATTRIBUTE_TYPE,
-    data: []const u8,
+    value: []const u8,
 
-    pub fn deinit(self: *Attribute, allocator: std.mem.Allocator) void {
-        allocator.free(self.data);
+    pub fn deinit(self: *const Attribute, allocator: std.mem.Allocator) void {
+        allocator.free(self.value);
     }
 };
 
@@ -169,11 +288,11 @@ pub fn parseAttribute(
     allocator: std.mem.Allocator,
     attribute: pkcs.CK_ATTRIBUTE,
 ) std.mem.Allocator.Error!Attribute {
-    const data = try allocator.alloc(u8, attribute.ulValueLen);
+    const value = try allocator.alloc(u8, attribute.ulValueLen);
 
     return Attribute{
         .attribute_type = attribute.type,
-        .data = data,
+        .value = value,
     };
 }
 
@@ -182,4 +301,53 @@ pub fn deinitSearchTemplate(allocator: std.mem.Allocator, search_template: []Att
     for (search_template) |*attr| {
         attr.deinit(allocator);
     }
+}
+
+pub fn encodeBool(allocator: std.mem.Allocator, value: pkcs.CK_BBOOL) PkcsError![]u8 {
+    const buff = allocator.alloc(u8, @sizeOf(pkcs.CK_BBOOL)) catch
+        return PkcsError.HostMemory;
+
+    _ = value;
+
+    return buff;
+}
+
+pub fn encodeLong(allocator: std.mem.Allocator, value: pkcs.CK_ULONG) PkcsError![]u8 {
+    const buff = allocator.alloc(u8, @sizeOf(pkcs.CK_BBOOL)) catch
+        return PkcsError.HostMemory;
+
+    _ = value;
+
+    return buff;
+}
+
+pub fn encodeByteArray(allocator: std.mem.Allocator, value: []const u8) PkcsError![]u8 {
+    const buff = allocator.alloc(u8, value.len) catch
+        return PkcsError.HostMemory;
+
+    return buff;
+}
+
+pub fn encodeDate(allocator: std.mem.Allocator, value: pkcs.CK_DATE) PkcsError![]u8 {
+    const buff = allocator.alloc(u8, @sizeOf(pkcs.CK_DATE)) catch
+        return PkcsError.HostMemory;
+
+    _ = value;
+
+    return buff;
+}
+
+pub fn encodeMechanismTypeList(allocator: std.mem.Allocator, value: []const pkcs.CK_MECHANISM_TYPE) PkcsError![]u8 {
+    const buff = allocator.alloc(u8, value.len * @sizeOf(pkcs.CK_MECHANISM_TYPE)) catch
+        return PkcsError.HostMemory;
+
+    return buff;
+}
+
+fn copyRaw(from: anytype, to: anytype) void {
+    const from_bytes = @as([*]u8, @ptrCast(&from))[0..@sizeOf(@TypeOf(from))];
+    const to_bytes = @as([*]u8, @ptrCast(&to))[0..@sizeOf(@TypeOf(to))];
+
+    const len = @min(from_bytes.len, to_bytes.len);
+    std.mem.copy(u8, to_bytes[0..len], from_bytes[0..len]);
 }

@@ -130,8 +130,39 @@ pub const Session = struct {
         self: *Session,
         attributes: []object.Attribute,
     ) PkcsError!void {
-        _ = self;
-        _ = attributes;
+        var object_list = std.ArrayList(pkcs.CK_OBJECT_HANDLE).init(self.allocator);
+        defer object_list.deinit();
+
+        for (self.objects) |current_object| {
+            var matches = true;
+
+            for (attributes) |attribute| {
+                const has_attribute_value = try current_object.hasAttributeValue(self.allocator, attribute);
+
+                if (!has_attribute_value) {
+                    matches = false;
+                    break;
+                }
+            }
+
+            if (matches) {
+                object_list.append(current_object.handle()) catch
+                    return PkcsError.HostMemory;
+            }
+        }
+
+        self.found_objects = object_list.toOwnedSlice() catch
+            return PkcsError.HostMemory;
+    }
+
+    pub fn getObject(self: *Session, object_handle: pkcs.CK_OBJECT_HANDLE) PkcsError!*object.Object {
+        for (self.objects) |*current_object| {
+            if (current_object.handle() == object_handle) {
+                return current_object;
+            }
+        }
+
+        return PkcsError.ObjectHandleInvalid;
     }
 };
 

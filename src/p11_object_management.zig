@@ -8,6 +8,8 @@ const pkcs_error = @import("pkcs_error.zig");
 const object = @import("object.zig");
 const session = @import("session.zig");
 
+const PkcsError = pkcs_error.PkcsError;
+
 pub export fn createObject(
     session_handle: pkcs.CK_SESSION_HANDLE,
     template: ?[*]pkcs.CK_ATTRIBUTE,
@@ -63,15 +65,70 @@ pub export fn getObjectSize(
 pub export fn getAttributeValue(
     session_handle: pkcs.CK_SESSION_HANDLE,
     object_handle: pkcs.CK_OBJECT_HANDLE,
-    template: ?[*]pkcs.CK_ATTRIBUTE,
+    template: [*c]pkcs.CK_ATTRIBUTE,
     count: pkcs.CK_ULONG,
 ) pkcs.CK_RV {
-    _ = session_handle;
-    _ = object_handle;
-    _ = template;
-    _ = count;
+    var has_attribute_sensitive = false;
+    var has_attribute_type_invalid = false;
+    var has_small_buffer = false;
 
-    return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
+    const current_session = session.getSession(session_handle, false) catch |err|
+        return pkcs_error.toRV(err);
+
+    if (template == null)
+        return pkcs.CKR_ARGUMENTS_BAD;
+
+    if (count == 0)
+        return pkcs.CKR_ARGUMENTS_BAD;
+
+    const selected_object = current_session.getObject(object_handle) catch |err|
+        return pkcs_error.toRV(err);
+
+    for (0..count) |i| {
+        // TODO: Do error paths free memory?
+        const object_attribute = selected_object.getAttribute(current_session.allocator, template.?[i].type) catch |err| {
+            switch (err) {
+                PkcsError.AttributeSensitive => {
+                    has_attribute_sensitive = true;
+                    continue;
+                },
+                PkcsError.AttributeTypeInvalid => {
+                    template[i].ulValueLen = pkcs.CK_UNAVAILABLE_INFORMATION;
+                    has_attribute_type_invalid = true;
+                    continue;
+                },
+                else => return pkcs_error.toRV(err),
+            }
+        };
+        defer object_attribute.deinit(current_session.allocator);
+
+        if (template[i].pValue == null) {
+            template[i].ulValueLen = object_attribute.value.len;
+            continue;
+        }
+
+        const target_buffer: [*]u8 = @ptrCast(template[i].pValue.?);
+
+        if (template[i].ulValueLen < object_attribute.value.len) {
+            has_small_buffer = true;
+            template[i].ulValueLen = pkcs.CK_UNAVAILABLE_INFORMATION;
+            continue;
+        }
+
+        template[i].ulValueLen = object_attribute.value.len;
+        std.mem.copyForwards(u8, target_buffer[0..template[i].ulValueLen], object_attribute.value);
+    }
+
+    if (has_attribute_sensitive)
+        return pkcs.CKR_ATTRIBUTE_SENSITIVE;
+
+    if (has_attribute_type_invalid)
+        return pkcs.CKR_ATTRIBUTE_TYPE_INVALID;
+
+    if (has_small_buffer)
+        return pkcs.CKR_BUFFER_TOO_SMALL;
+
+    return pkcs.CKR_OK;
 }
 
 pub export fn setAttributeValue(
