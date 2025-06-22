@@ -151,7 +151,7 @@ pub export fn getMechanismList(
 
     const reader_state = reader_entry.?;
 
-    if (reader_state.card_present)
+    if (!reader_state.card_present)
         return pkcs.CKR_DEVICE_REMOVED;
 
     if (!reader_state.recognized)
@@ -184,7 +184,7 @@ pub export fn getMechanismInfo(
 
     const reader_state = reader_entry.?;
 
-    if (reader_state.card_present)
+    if (!reader_state.card_present)
         return pkcs.CKR_DEVICE_REMOVED;
 
     if (!reader_state.recognized)
@@ -223,9 +223,7 @@ pub export fn getMechanismInfo(
             mechanism_info.?.ulMaxKeySize = 0;
             mechanism_info.?.flags = pkcs.CKF_DIGEST;
         },
-        else => {
-            return pkcs.CKR_MECHANISM_INVALID;
-        },
+        else => return pkcs.CKR_MECHANISM_INVALID,
     }
 
     return pkcs.CKR_OK;
