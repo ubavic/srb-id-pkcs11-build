@@ -14,7 +14,11 @@ const state = @import("state.zig");
 const reader = @import("reader.zig");
 const pkcs_error = @import("pkcs_error.zig");
 
-pub export fn getSlotList(token_present: pkcs.CK_BBOOL, slot_list: ?[*]pkcs.CK_SLOT_ID, slot_count: ?*pkcs.CK_ULONG) pkcs.CK_RV {
+pub export fn getSlotList(
+    token_present: pkcs.CK_BBOOL,
+    slot_list: ?[*]pkcs.CK_SLOT_ID,
+    slot_count: ?*pkcs.CK_ULONG,
+) pkcs.CK_RV {
     if (!state.initialized)
         return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
 
@@ -54,7 +58,10 @@ pub export fn getSlotList(token_present: pkcs.CK_BBOOL, slot_list: ?[*]pkcs.CK_S
     return pkcs.CKR_OK;
 }
 
-pub export fn getSlotInfo(slot_ID: pkcs.CK_SLOT_ID, slot_info: ?*pkcs.CK_SLOT_INFO) pkcs.CK_RV {
+pub export fn getSlotInfo(
+    slot_ID: pkcs.CK_SLOT_ID,
+    slot_info: ?*pkcs.CK_SLOT_INFO,
+) pkcs.CK_RV {
     if (!state.initialized)
         return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
 
@@ -85,14 +92,15 @@ pub export fn getSlotInfo(slot_ID: pkcs.CK_SLOT_ID, slot_info: ?*pkcs.CK_SLOT_IN
     return pkcs.CKR_OK;
 }
 
-pub export fn getTokenInfo(slot_id: pkcs.CK_SLOT_ID, token_info: ?*pkcs.CK_TOKEN_INFO) pkcs.CK_RV {
-    if (!state.initialized) {
+pub export fn getTokenInfo(
+    slot_id: pkcs.CK_SLOT_ID,
+    token_info: ?*pkcs.CK_TOKEN_INFO,
+) pkcs.CK_RV {
+    if (!state.initialized)
         return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
 
-    if (token_info == null) {
+    if (token_info == null)
         return pkcs.CKR_ARGUMENTS_BAD;
-    }
 
     const reader_entry = reader.reader_states.get(slot_id);
     if (reader_entry == null)
@@ -111,7 +119,11 @@ pub export fn getTokenInfo(slot_id: pkcs.CK_SLOT_ID, token_info: ?*pkcs.CK_TOKEN
     return pkcs.CKR_OK;
 }
 
-pub export fn getMechanismList(slot_id: pkcs.CK_SLOT_ID, mechanism_list: ?[*]pkcs.CK_MECHANISM_TYPE, count: ?*pkcs.CK_ULONG) pkcs.CK_RV {
+pub export fn getMechanismList(
+    slot_id: pkcs.CK_SLOT_ID,
+    mechanism_list: ?[*]pkcs.CK_MECHANISM_TYPE,
+    count: ?*pkcs.CK_ULONG,
+) pkcs.CK_RV {
     const mechanisms = [_]pkcs.CK_MECHANISM_TYPE{
         // pkcs.CKM_RSA_PKCS_KEY_PAIR_GEN,
         // pkcs.CKM_RSA_PKCS,
@@ -130,9 +142,8 @@ pub export fn getMechanismList(slot_id: pkcs.CK_SLOT_ID, mechanism_list: ?[*]pkc
         pkcs.CKM_SHA512,
     };
 
-    if (!state.initialized) {
+    if (!state.initialized)
         return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
 
     const reader_entry = reader.reader_states.get(slot_id);
     if (reader_entry == null)
@@ -140,18 +151,15 @@ pub export fn getMechanismList(slot_id: pkcs.CK_SLOT_ID, mechanism_list: ?[*]pkc
 
     const reader_state = reader_entry.?;
 
-    if (reader_state.card_present) {
+    if (reader_state.card_present)
         return pkcs.CKR_DEVICE_REMOVED;
-    }
 
-    if (!reader_state.recognized) {
+    if (!reader_state.recognized)
         return pkcs.CKR_TOKEN_NOT_RECOGNIZED;
-    }
 
     if (mechanism_list != null) {
-        if (count.?.* < mechanisms.len) {
+        if (count.?.* < mechanisms.len)
             return pkcs.CKR_BUFFER_TOO_SMALL;
-        }
 
         for (mechanisms, 0..) |m, i| {
             mechanism_list.?[i] = m;
@@ -162,10 +170,13 @@ pub export fn getMechanismList(slot_id: pkcs.CK_SLOT_ID, mechanism_list: ?[*]pkc
     return pkcs.CKR_OK;
 }
 
-pub export fn getMechanismInfo(slot_id: pkcs.CK_SLOT_ID, mechanism_type: pkcs.CK_MECHANISM_TYPE, mechanism_info: ?*pkcs.CK_MECHANISM_INFO) pkcs.CK_RV {
-    if (!state.initialized) {
+pub export fn getMechanismInfo(
+    slot_id: pkcs.CK_SLOT_ID,
+    mechanism_type: pkcs.CK_MECHANISM_TYPE,
+    mechanism_info: ?*pkcs.CK_MECHANISM_INFO,
+) pkcs.CK_RV {
+    if (!state.initialized)
         return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
 
     const reader_entry = reader.reader_states.get(slot_id);
     if (reader_entry == null)
@@ -173,17 +184,14 @@ pub export fn getMechanismInfo(slot_id: pkcs.CK_SLOT_ID, mechanism_type: pkcs.CK
 
     const reader_state = reader_entry.?;
 
-    if (reader_state.card_present) {
+    if (reader_state.card_present)
         return pkcs.CKR_DEVICE_REMOVED;
-    }
 
-    if (!reader_state.recognized) {
+    if (!reader_state.recognized)
         return pkcs.CKR_TOKEN_NOT_RECOGNIZED;
-    }
 
-    if (mechanism_info == null) {
+    if (mechanism_info == null)
         return pkcs.CKR_ARGUMENTS_BAD;
-    }
 
     switch (mechanism_type) {
         pkcs.CKM_RSA_PKCS_KEY_PAIR_GEN => {
@@ -223,15 +231,30 @@ pub export fn getMechanismInfo(slot_id: pkcs.CK_SLOT_ID, mechanism_type: pkcs.CK
     return pkcs.CKR_OK;
 }
 
-pub export fn initToken(_: pkcs.CK_SLOT_ID, _: ?*pkcs.CK_UTF8CHAR, _: pkcs.CK_ULONG, _: ?*pkcs.CK_UTF8CHAR) pkcs.CK_RV {
+pub export fn initToken(
+    _: pkcs.CK_SLOT_ID,
+    _: ?*pkcs.CK_UTF8CHAR,
+    _: pkcs.CK_ULONG,
+    _: ?*pkcs.CK_UTF8CHAR,
+) pkcs.CK_RV {
     return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
 }
 
-pub export fn initPin(_: pkcs.CK_SESSION_HANDLE, _: pkcs.CK_UTF8CHAR_PTR, _: pkcs.CK_ULONG) pkcs.CK_RV {
+pub export fn initPin(
+    _: pkcs.CK_SESSION_HANDLE,
+    _: pkcs.CK_UTF8CHAR_PTR,
+    _: pkcs.CK_ULONG,
+) pkcs.CK_RV {
     return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
 }
 
-pub export fn setPin(_: pkcs.CK_SESSION_HANDLE, _: pkcs.CK_UTF8CHAR_PTR, _: pkcs.CK_ULONG, _: pkcs.CK_UTF8CHAR_PTR, _: pkcs.CK_ULONG) pkcs.CK_RV {
+pub export fn setPin(
+    _: pkcs.CK_SESSION_HANDLE,
+    _: pkcs.CK_UTF8CHAR_PTR,
+    _: pkcs.CK_ULONG,
+    _: pkcs.CK_UTF8CHAR_PTR,
+    _: pkcs.CK_ULONG,
+) pkcs.CK_RV {
     return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
 }
 

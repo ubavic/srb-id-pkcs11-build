@@ -28,14 +28,12 @@ const p11_sign = @import("p11_sign.zig");
 const p11_slot_and_token = @import("p11_slot_and_token.zig");
 
 export fn initialize(_: pkcs.CK_VOID_PTR) pkcs.CK_RV {
-    if (state.initialized) {
+    if (state.initialized)
         return pkcs.CKR_CRYPTOKI_ALREADY_INITIALIZED;
-    }
 
     const rv = pcsc.SCardEstablishContext(pcsc.SCARD_SCOPE_SYSTEM, null, null, &state.smart_card_context_handle);
-    if (rv != pcsc.SCARD_S_SUCCESS) {
+    if (rv != pcsc.SCARD_S_SUCCESS)
         return pkcs.CKR_FUNCTION_FAILED;
-    }
 
     reader.reader_states = std.AutoHashMap(pkcs.CK_SLOT_ID, reader.ReaderState).init(state.allocator);
     session.initSessions(state.allocator);
@@ -45,30 +43,25 @@ export fn initialize(_: pkcs.CK_VOID_PTR) pkcs.CK_RV {
 }
 
 export fn finalize(reserved: pkcs.CK_VOID_PTR) pkcs.CK_RV {
-    if (reserved != null) {
+    if (reserved != null)
         return pkcs.CKR_ARGUMENTS_BAD;
-    }
 
-    if (!state.initialized) {
+    if (!state.initialized)
         return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
 
     const rv = pcsc.SCardReleaseContext(state.smart_card_context_handle);
-    if (rv != pcsc.SCARD_S_SUCCESS) {
+    if (rv != pcsc.SCARD_S_SUCCESS)
         return pkcs.CKR_FUNCTION_FAILED;
-    }
 
     return pkcs.CKR_OK;
 }
 
 export fn getInfo(info: ?*pkcs.CK_INFO) pkcs.CK_RV {
-    if (!state.initialized) {
+    if (!state.initialized)
         return pkcs.CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
 
-    if (info == null) {
+    if (info == null)
         return pkcs.CKR_ARGUMENTS_BAD;
-    }
 
     info.?.cryptokiVersion.major = pkcs.CRYPTOKI_VERSION_MAJOR;
     info.?.cryptokiVersion.minor = pkcs.CRYPTOKI_VERSION_MINOR;
@@ -158,9 +151,8 @@ var functionList = pkcs.CK_FUNCTION_LIST{
 };
 
 export fn C_GetFunctionList(function_list: ?*?*pkcs.CK_FUNCTION_LIST) pkcs.CK_RV {
-    if (function_list == null) {
+    if (function_list == null)
         return pkcs.CKR_ARGUMENTS_BAD;
-    }
 
     function_list.?.* = &functionList;
     return pkcs.CKR_OK;
