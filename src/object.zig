@@ -307,16 +307,18 @@ pub fn encodeBool(allocator: std.mem.Allocator, value: pkcs.CK_BBOOL) PkcsError!
     const buff = allocator.alloc(u8, @sizeOf(pkcs.CK_BBOOL)) catch
         return PkcsError.HostMemory;
 
-    _ = value;
+    const src: *const [@sizeOf(pkcs.CK_BBOOL)]u8 = @ptrCast(&value);
+    std.mem.copyForwards(u8, buff, src);
 
     return buff;
 }
 
 pub fn encodeLong(allocator: std.mem.Allocator, value: pkcs.CK_ULONG) PkcsError![]u8 {
-    const buff = allocator.alloc(u8, @sizeOf(pkcs.CK_BBOOL)) catch
+    const buff = allocator.alloc(u8, @sizeOf(pkcs.CK_ULONG)) catch
         return PkcsError.HostMemory;
 
-    _ = value;
+    const src: *const [@sizeOf(pkcs.CK_ULONG)]u8 = @ptrCast(&value);
+    std.mem.copyForwards(u8, buff, src);
 
     return buff;
 }
@@ -325,6 +327,8 @@ pub fn encodeByteArray(allocator: std.mem.Allocator, value: []const u8) PkcsErro
     const buff = allocator.alloc(u8, value.len) catch
         return PkcsError.HostMemory;
 
+    std.mem.copyForwards(u8, buff, value);
+
     return buff;
 }
 
@@ -332,7 +336,8 @@ pub fn encodeDate(allocator: std.mem.Allocator, value: pkcs.CK_DATE) PkcsError![
     const buff = allocator.alloc(u8, @sizeOf(pkcs.CK_DATE)) catch
         return PkcsError.HostMemory;
 
-    _ = value;
+    const src: *const [@sizeOf(pkcs.CK_DATE)]u8 = @ptrCast(&value);
+    std.mem.copyForwards(u8, buff, src);
 
     return buff;
 }
@@ -342,12 +347,4 @@ pub fn encodeMechanismTypeList(allocator: std.mem.Allocator, value: []const pkcs
         return PkcsError.HostMemory;
 
     return buff;
-}
-
-fn copyRaw(from: anytype, to: anytype) void {
-    const from_bytes = @as([*]u8, @ptrCast(&from))[0..@sizeOf(@TypeOf(from))];
-    const to_bytes = @as([*]u8, @ptrCast(&to))[0..@sizeOf(@TypeOf(to))];
-
-    const len = @min(from_bytes.len, to_bytes.len);
-    std.mem.copy(u8, to_bytes[0..len], from_bytes[0..len]);
 }
