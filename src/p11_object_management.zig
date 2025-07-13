@@ -155,13 +155,18 @@ pub export fn findObjectsInit(
     current_session.assertOperation(session.Operation.None) catch |err|
         return pkcs_error.toRV(err);
 
-    if (template == null)
+    if (template == null and count != 0)
         return pkcs.CKR_ARGUMENTS_BAD;
 
     current_session.search_index = 0;
 
-    const search_template = object.parseAttributes(current_session.allocator, template.?[0..count]) catch |err|
-        return pkcs_error.toRV(err);
+    var search_template: []object.Attribute = undefined;
+
+    if (count > 0) {
+        search_template = object.parseAttributes(current_session.allocator, template.?[0..count]) catch |err|
+            return pkcs_error.toRV(err);
+        defer current_session.allocator.free(search_template);
+    } else search_template = &.{};
 
     current_session.findObjects(search_template) catch |err|
         return pkcs_error.toRV(err);
