@@ -47,6 +47,7 @@ pub const Card = struct {
         }
     }
 
+    // Allocates result buffer
     fn transmit(
         self: *const Card,
         allocator: std.mem.Allocator,
@@ -75,14 +76,76 @@ pub const Card = struct {
         return out;
     }
 
-    fn readFile(
+    fn read(
+        self: *const Card,
+        allocator: std.mem.Allocator,
+        offset: u16,
+        length: u16,
+    ) PkcsError![]u8 {
+        const read_size = @min(length, 0xFF);
+        const adpu = apdu.build(
+            allocator,
+            0x00,
+            0xB0,
+            @intCast(offset >> 8),
+            @intCast(offset & 0x00FF),
+            null,
+            read_size,
+        ) catch
+            return PkcsError.HostMemory;
+
+        const rsp = try self.transmit(allocator, adpu);
+        defer allocator.free(rsp);
+
+        if (rsp.len < 2)
+            return PkcsError.DeviceError;
+
+        const rsp_len = rsp.len - 2;
+        const result = allocator.alloc(u8, rsp_len) catch
+            return PkcsError.HostMemory;
+        std.mem.copyForwards(u8, result, rsp[0..rsp_len]);
+
+        return result;
+    }
+
+    pub fn readCertificateFile(
         self: *Card,
         allocator: std.mem.Allocator,
-        file_name: []u8,
+        file_name: []const u8,
     ) PkcsError![]u8 {
-        _ = self;
-        _ = allocator;
-        _ = file_name;
+        try self.selectFile(allocator, file_name, 0x00, 0x00, 0);
+
+        const head_data = try self.read(allocator, 0, 2);
+        defer allocator.free(head_data);
+
+        if (head_data.len < 2)
+            return PkcsError.DeviceError;
+
+        var offset: u16 = 0;
+        var length: u16 = std.mem.readInt(u16, @ptrCast(head_data), std.builtin.Endian.little) + 2;
+
+        var list = std.ArrayList(u8).initCapacity(allocator, length) catch
+            return PkcsError.HostMemory;
+        defer list.deinit();
+
+        while (length > 0) {
+            const data = try self.read(allocator, offset, length);
+            defer allocator.free(data);
+
+            if (data.len == 0)
+                break;
+
+            list.appendSlice(data) catch
+                return PkcsError.HostMemory;
+
+            offset += @intCast(data.len);
+            length -= @intCast(data.len);
+        }
+
+        const slice = list.toOwnedSlice() catch
+            return PkcsError.HostMemory;
+
+        return slice;
     }
 
     pub fn disconnect(
