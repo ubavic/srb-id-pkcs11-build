@@ -40,6 +40,14 @@ pub const Object = union(enum) {
 
         return std.mem.eql(u8, object_attribute.value, attribute.value);
     }
+
+    pub fn deinit(self: *const Object, allocator: std.mem.Allocator) void {
+        switch (self.*) {
+            .certificate => |o| o.deinit(allocator),
+            .private_key => |o| o.deinit(allocator),
+            .public_key => |o| o.deinit(allocator),
+        }
+    }
 };
 
 pub const CertificateObject = struct {
