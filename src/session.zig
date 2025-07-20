@@ -11,6 +11,7 @@ const sc = @cImport({
 });
 
 const object = @import("object.zig");
+const openssl = @import("openssl.zig");
 const hasher = @import("hasher.zig");
 const pkcs_error = @import("pkcs_error.zig");
 const reader = @import("reader.zig");
@@ -164,6 +165,60 @@ pub const Session = struct {
 
         return PkcsError.ObjectHandleInvalid;
     }
+
+    fn loadCertificates(
+        self: *Session,
+        allocator: std.mem.Allocator,
+    ) PkcsError!void {
+        var object_list = std.ArrayList(object.Object).initCapacity(allocator, 6) catch
+            return PkcsError.HostMemory;
+        errdefer object_list.deinit();
+
+        const files: [2][2]u8 = [2][2]u8{
+            [_]u8{ 0x71, 0x02 },
+            [_]u8{ 0x71, 0x03 },
+        };
+
+        const ids: [2][3]c_ulong = [2][3]c_ulong{
+            [_]c_ulong{ 0x80000028, 0x80000010, 0x80000008 },
+            [_]c_ulong{ 0x80000030, 0x80000020, 0x80000018 },
+        };
+
+        for (files, 0..) |file, i| {
+            const certificate_file = self.card.readCertificateFile(allocator, file[0..]) catch
+                continue;
+            defer allocator.free(certificate_file);
+
+            const certificate = try decompressCertificate(allocator, certificate_file);
+            defer allocator.free(certificate);
+
+            const x509 = openssl.parseX509(certificate) catch
+                continue;
+            defer openssl.freeX509(x509);
+
+            const object_ids = ids[i];
+
+            const cert_objects = openssl.loadObjects(
+                allocator,
+                x509,
+                object_ids[0],
+                object_ids[1],
+                object_ids[2],
+            ) catch
+                continue;
+
+            for (cert_objects) |o| {
+                object_list.append(o) catch {
+                    // deinit o;
+                };
+            }
+        }
+
+        self.objects = object_list.toOwnedSlice() catch
+            return PkcsError.HostMemory;
+
+        std.debug.print("objects: {d}\n", .{self.objects.len});
+    }
 };
 
 pub fn initSessions(allocator: std.mem.Allocator) void {
@@ -190,23 +245,22 @@ pub fn newSession(
         reader_state.name,
     );
 
-    // TODO: Load and parse certificates
     const objects: []object.Object = allocator.alloc(object.Object, 0) catch
         return PkcsError.HostMemory;
 
-    sessions.put(
-        session_id,
-        Session{
-            .id = session_id,
-            .card = card,
-            .reader_id = slot_id,
-            .write_enabled = write_enabled,
-            .allocator = allocator,
-            .objects = objects,
-        },
-    ) catch {
-        return PkcsError.HostMemory;
+    var new_session = Session{
+        .id = session_id,
+        .card = card,
+        .reader_id = slot_id,
+        .write_enabled = write_enabled,
+        .allocator = allocator,
+        .objects = objects,
     };
+
+    try new_session.loadCertificates(allocator);
+
+    sessions.put(session_id, new_session) catch
+        return PkcsError.HostMemory;
 
     return session_id;
 }
@@ -265,4 +319,26 @@ pub fn closeAllSessions(slot_id: pkcs.CK_SLOT_ID) pkcs.CK_RV {
     }
 
     return err;
+}
+
+fn decompressCertificate(allocator: std.mem.Allocator, certificate: []u8) PkcsError![]u8 {
+    if (certificate.len < 8)
+        return PkcsError.GeneralError;
+
+    var list = std.ArrayList(u8).initCapacity(allocator, 2 * certificate.len) catch
+        return PkcsError.HostMemory;
+    defer list.deinit();
+
+    const writer = list.writer();
+
+    var cert_stream = std.io.fixedBufferStream(certificate[6..]);
+    const stream_reader = cert_stream.reader();
+
+    std.compress.zlib.decompress(stream_reader, writer) catch
+        return PkcsError.GeneralError;
+
+    const decompressed_certificate = list.toOwnedSlice() catch
+        return PkcsError.HostMemory;
+
+    return decompressed_certificate;
 }
