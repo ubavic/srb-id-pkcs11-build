@@ -270,33 +270,38 @@ pub fn parseAttributes(
     allocator: std.mem.Allocator,
     template: []pkcs.CK_ATTRIBUTE,
 ) PkcsError![]Attribute {
-    const search_template = allocator.alloc(Attribute, template.len) catch
+    var search_template = std.ArrayList(Attribute).initCapacity(allocator, template.len) catch
         return PkcsError.HostMemory;
+    errdefer search_template.deinit();
 
-    var errored = false;
+    for (template) |attribute| {
+        const parsed_attribute = try parseAttribute(allocator, attribute);
+        errdefer parsed_attribute.deinit(allocator);
 
-    for (template, 0..) |attribute, i| {
-        const parsed_attribute = parseAttribute(allocator, attribute) catch {
-            errored = true;
-            break;
-        };
-
-        search_template[i] = parsed_attribute;
+        search_template.append(parsed_attribute) catch
+            return PkcsError.HostMemory;
     }
 
-    if (!errored) {
-        deinitSearchTemplate(allocator, search_template);
+    const slice = search_template.toOwnedSlice() catch
         return PkcsError.HostMemory;
-    }
 
-    return search_template;
+    return slice;
 }
 
 pub fn parseAttribute(
     allocator: std.mem.Allocator,
     attribute: pkcs.CK_ATTRIBUTE,
-) std.mem.Allocator.Error!Attribute {
-    const value = try allocator.alloc(u8, attribute.ulValueLen);
+) PkcsError!Attribute {
+    if (attribute.pValue == null and attribute.ulValueLen != 0)
+        return PkcsError.ArgumentsBad;
+
+    const value = allocator.alloc(u8, attribute.ulValueLen) catch
+        return PkcsError.HostMemory;
+
+    if (attribute.ulValueLen > 0) {
+        const src: [*c]u8 = @ptrCast(attribute.pValue.?);
+        std.mem.copyForwards(u8, value, src[0..attribute.ulValueLen]);
+    }
 
     return Attribute{
         .attribute_type = attribute.type,
@@ -305,10 +310,13 @@ pub fn parseAttribute(
 }
 
 pub fn deinitSearchTemplate(allocator: std.mem.Allocator, search_template: []Attribute) void {
-    // TODO: skip elements that are not allocated
-    for (search_template) |*attr| {
+    if (search_template.len == 0)
+        return;
+
+    for (search_template) |*attr|
         attr.deinit(allocator);
-    }
+
+    allocator.free(search_template);
 }
 
 pub fn encodeBool(allocator: std.mem.Allocator, value: pkcs.CK_BBOOL) PkcsError![]u8 {

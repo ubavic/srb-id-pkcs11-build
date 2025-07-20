@@ -165,8 +165,8 @@ pub export fn findObjectsInit(
     if (count > 0) {
         search_template = object.parseAttributes(current_session.allocator, template.?[0..count]) catch |err|
             return pkcs_error.toRV(err);
-        defer current_session.allocator.free(search_template);
     } else search_template = &.{};
+    defer object.deinitSearchTemplate(current_session.allocator, search_template);
 
     current_session.findObjects(search_template) catch |err|
         return pkcs_error.toRV(err);
