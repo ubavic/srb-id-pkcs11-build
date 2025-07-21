@@ -52,9 +52,8 @@ pub const Session = struct {
 
     pub fn login(self: *Session, new_pin: []const u8) PkcsError!void {
         errdefer reader.setUserType(self.reader_id, reader.UserType.None);
-        const verified = try self.card.verifyPin(self.allocator, new_pin);
-        const user_status = if (verified) reader.UserType.User else reader.UserType.None;
-        reader.setUserType(self.reader_id, user_status);
+        try self.card.verifyPin(self.allocator, new_pin);
+        reader.setUserType(self.reader_id, reader.UserType.User);
     }
 
     pub fn logout(self: *Session) void {

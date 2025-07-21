@@ -183,25 +183,60 @@ pub const Card = struct {
         return response;
     }
 
-    pub fn verifyPin(self: *const Card, allocator: std.mem.Allocator, pin: []const u8) PkcsError!bool {
-        if (true) {
-            return true;
-        }
+    pub fn verifyPin(self: *const Card, allocator: std.mem.Allocator, pin: []const u8) PkcsError!void {
+        if (!validatePin(pin))
+            return PkcsError.PinIncorrect;
 
-        //TODO: Implement pin pad and error codes
+        const padded_pin = try padPin(pin);
 
-        const data_unit = apdu.build(allocator, 0x00, 0x20, 0x00, 0x80, pin, 0) catch
+        const data_unit = apdu.build(allocator, 0x00, 0x20, 0x00, 0x80, &padded_pin, 0) catch
             return PkcsError.HostMemory;
         defer allocator.free(data_unit);
 
         const response = try self.transmit(allocator, data_unit);
         defer allocator.free(response);
 
-        if (!responseOK(response)) {
-            return false;
-        }
+        if (responseIs(response, [_]u8{ 0x63, 0xC0 }))
+            return PkcsError.PinLocked;
 
-        return true;
+        if (responseIs(response, [_]u8{ 0x69, 0x83 }))
+            return PkcsError.PinLocked;
+
+        if (!responseOK(response))
+            return PkcsError.PinIncorrect;
+    }
+
+    pub fn setPin(
+        self: *const Card,
+        allocator: std.mem.Allocator,
+        old_pin: []const u8,
+        new_pin: []const u8,
+    ) PkcsError!void {
+        if (!validatePin(old_pin))
+            return PkcsError.PinIncorrect;
+
+        if (!validatePin(new_pin))
+            return PkcsError.PinIncorrect;
+
+        try self.verifyPin(allocator, old_pin);
+
+        var data: [16]u8 = [_]u8{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
+        const padded_old_pin = try padPin(old_pin);
+        const padded_new_pin = try padPin(new_pin);
+
+        std.mem.copyForwards(u8, data[0..8], &padded_old_pin);
+        std.mem.copyForwards(u8, data[8..16], &padded_new_pin);
+
+        const data_unit = apdu.build(allocator, 0x00, 0x24, 0x00, 0x80, &data, 0) catch
+            return PkcsError.HostMemory;
+        defer allocator.free(data_unit);
+
+        const response = try self.transmit(allocator, data_unit);
+        defer allocator.free(response);
+
+        if (!responseOK(response))
+            return PkcsError.FunctionFailed;
     }
 };
 
@@ -251,4 +286,44 @@ fn scToPkcsError(err: sc.LONG) PkcsError!void {
         sc.SCARD_E_NO_SMARTCARD => PkcsError.TokenNoPresent,
         else => PkcsError.DeviceError,
     };
+}
+
+fn padPin(pin: []const u8) PkcsError![8]u8 {
+    var padded_pin: [8]u8 = [_]u8{ 0, 0, 0, 0, 0, 0, 0, 0 };
+
+    for (pin, 0..) |p, i| {
+        padded_pin[i] = p;
+    }
+
+    return padded_pin;
+}
+
+fn validatePin(pin: []const u8) bool {
+    if (pin.len < 4 or pin.len > 8)
+        return false;
+
+    for (pin) |p| {
+        if (p < '0' or p > '9')
+            return false;
+    }
+
+    return true;
+}
+
+test "Pad pin" {
+    const test_cases = [_]struct {
+        pin: []const u8,
+        expected: []const u8,
+    }{
+        .{ .pin = &.{}, .expected = &.{ 0, 0, 0, 0, 0, 0, 0, 0 } },
+        .{ .pin = &.{1}, .expected = &.{ 1, 0, 0, 0, 0, 0, 0, 0 } },
+        .{ .pin = &.{ 1, 2, 3 }, .expected = &.{ 1, 2, 3, 0, 0, 0, 0, 0 } },
+        .{ .pin = &.{ 1, 2, 3, 4, 5, 6, 7, 8 }, .expected = &.{ 1, 2, 3, 4, 5, 6, 7, 8 } },
+    };
+
+    for (test_cases) |tc| {
+        const result = try padPin(std.testing.allocator, tc.pin);
+        defer std.testing.allocator.free(result);
+        try std.testing.expectEqualSlices(u8, tc.expected, result);
+    }
 }

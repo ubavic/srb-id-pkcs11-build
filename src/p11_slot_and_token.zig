@@ -10,6 +10,7 @@ const sc = @cImport({
     @cInclude("wintypes.h");
 });
 
+const session = @import("session.zig");
 const state = @import("state.zig");
 const reader = @import("reader.zig");
 const pkcs_error = @import("pkcs_error.zig");
@@ -247,13 +248,24 @@ pub export fn initPin(
 }
 
 pub export fn setPin(
-    _: pkcs.CK_SESSION_HANDLE,
-    _: pkcs.CK_UTF8CHAR_PTR,
-    _: pkcs.CK_ULONG,
-    _: pkcs.CK_UTF8CHAR_PTR,
-    _: pkcs.CK_ULONG,
+    session_handle: pkcs.CK_SESSION_HANDLE,
+    old_pin: pkcs.CK_UTF8CHAR_PTR,
+    old_pin_len: pkcs.CK_ULONG,
+    new_pin: pkcs.CK_UTF8CHAR_PTR,
+    new_pin_len: pkcs.CK_ULONG,
 ) pkcs.CK_RV {
-    return pkcs.CKR_FUNCTION_NOT_SUPPORTED;
+    const current_session = session.getSession(session_handle, false) catch |err|
+        return pkcs_error.toRV(err);
+
+    if (!current_session.write_enabled)
+        return pkcs.CKR_SESSION_READ_ONLY;
+
+    if (old_pin == null or new_pin == null)
+        return pkcs.CKR_ARGUMENTS_BAD;
+
+    current_session.card.setPin(state.allocator, old_pin[0..old_pin_len], new_pin[0..new_pin_len]) catch |err|
+        return pkcs_error.toRV(err);
+    return pkcs.CKR_OK;
 }
 
 pub export fn waitForSlotEvent(
