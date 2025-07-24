@@ -6,25 +6,37 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const semver = std.SemanticVersion{
-        .major = version.major,
-        .minor = version.minor,
-        .patch = version.patch,
-    };
-
     const lib = b.addSharedLibrary(.{
         .name = "srb-id-pkcs11",
         .root_source_file = b.path("src/p11_general.zig"),
         .target = target,
         .optimize = optimize,
-        .version = semver,
+        .version = null,
     });
 
-    lib.addIncludePath(b.path("include"));
-    lib.addIncludePath(.{ .cwd_relative = "/usr/include/PCSC/" });
-
-    lib.linkSystemLibrary("pcsclite");
-    lib.linkSystemLibrary("openssl");
+    switch (target.result.os.tag) {
+        std.Target.Os.Tag.windows => {
+            lib.addIncludePath(b.path("include"));
+            lib.addIncludePath(.{ .cwd_relative = "vcpkg/packages/openssl_x64-windows/include/openssl" });
+            lib.addLibraryPath(.{ .cwd_relative = "vcpkg/packages/openssl_x64-windows/bin" });
+            lib.linkSystemLibrary("libssl");
+            lib.linkSystemLibrary("pcsclite");
+        },
+        std.Target.Os.Tag.macos => {
+            lib.addIncludePath(b.path("include"));
+            lib.addIncludePath(.{ .cwd_relative = "/opt/homebrew/opt/openssl@3/include" });
+            lib.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/opt/openssl@3/lib" });
+            lib.linkSystemLibrary("ssl");
+            lib.linkSystemLibrary("crypto");
+            lib.linkFramework("PCSC");
+        },
+        else => {
+            lib.addIncludePath(b.path("include"));
+            lib.addIncludePath(.{ .cwd_relative = "/usr/include/PCSC/" });
+            lib.linkSystemLibrary("pcsclite");
+            lib.linkSystemLibrary("openssl");
+        },
+    }
 
     b.installArtifact(lib);
 

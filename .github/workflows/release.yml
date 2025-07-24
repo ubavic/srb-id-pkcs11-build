@@ -1,0 +1,198 @@
+name: "Build and release"
+
+on:
+  push:
+
+env:
+  ZIG_VERSION: "0.14.1"
+  OASIS_URL: "https://docs.oasis-open.org/pkcs11/pkcs11-base/v2.40/errata01/os/include/pkcs11-v2.40"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Linux deps
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential pkg-config libpcsclite-dev
+      - name: Install zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - name: Download PKCS11
+        run: |
+          curl --output include/pkcs11.h $OASIS_URL/pkcs11.h
+          curl --output include/pkcs11f.h $OASIS_URL/pkcs11f.h
+          curl --output include/pkcs11t.h $OASIS_URL/pkcs11t.h
+      - name: Test
+        run: |
+          zig test src/smart-card.zig
+          zig test src/apdu.zig
+
+  buildLinux:
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Linux deps
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential pkg-config libpcsclite-dev
+      - name: Install zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - name: Download PKCS11
+        run: |
+          curl --output include/pkcs11.h $OASIS_URL/pkcs11.h
+          curl --output include/pkcs11f.h $OASIS_URL/pkcs11f.h
+          curl --output include/pkcs11t.h $OASIS_URL/pkcs11t.h
+      - name: Build
+        run: |
+          zig build
+          mkdir artifact
+          cp zig-out/lib/*.so artifact/.
+      - name: Upload library
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build-artifact
+          path: artifact/*
+
+  buildWindows:
+    runs-on: windows-latest
+    needs: [test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install vcpkg and OpenSSL
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git
+          .\vcpkg\bootstrap-vcpkg.bat
+          .\vcpkg\vcpkg install openssl:x64-windows
+          echo "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" >> $env:GITHUB_ENV
+      - name: Install zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - name: Download PKCS11
+        run: |
+          curl --output include/pkcs11.h $env:OASIS_URL/pkcs11.h
+          curl --output include/pkcs11f.h $env:OASIS_URL/pkcs11f.h
+          curl --output include/pkcs11t.h $env:OASIS_URL/pkcs11t.h
+      - name: List files recursively (PowerShell)
+        shell: pwsh
+        run: |
+          Write-Host "Listing all files and folders recursively:"
+          Get-ChildItem -Recurse vcpkg/packages/openssl_x64-windows
+      - name: Build
+        run: |
+          zig build
+          mkdir artifact
+      - name: List files recursively (PowerShell)
+        shell: pwsh
+        run: |
+          Write-Host "Listing all files and folders recursively:"
+          Get-ChildItem -Recurse
+      - name: Upload library
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-artifact
+          path: artifact/*
+
+  buildMac:
+    runs-on: macos-latest-large
+    needs: [test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install OpenSSL
+        run: brew install openssl@3
+      - name: Install zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - name: Download PKCS11
+        run: |
+          curl --output include/pkcs11.h $OASIS_URL/pkcs11.h
+          curl --output include/pkcs11f.h $OASIS_URL/pkcs11f.h
+          curl --output include/pkcs11t.h $OASIS_URL/pkcs11t.h
+      - name: Build
+        run: |
+          zig build
+          mkdir artifact
+          ls /usr/local/
+          ls /usr/local/Cellar/ -R
+          ls zig-out/
+          cp zig-out/lib/*.dylib artifact/.
+      - name: Upload executables
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-build-artifact
+          path: artifact/*
+
+  buildMacArm:
+    runs-on: macos-latest-large
+    needs: [test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install OpenSSL
+        run: brew install openssl@3
+      - name: Install zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - name: Download PKCS11
+        run: |
+          curl --output include/pkcs11.h $OASIS_URL/pkcs11.h
+          curl --output include/pkcs11f.h $OASIS_URL/pkcs11f.h
+          curl --output include/pkcs11t.h $OASIS_URL/pkcs11t.h
+      - name: Build
+        run: |
+          zig build
+          mkdir artifact
+          ls zig-out/lib/
+          cp zig-out/lib/*.dylib artifact/.
+      - name: Upload executables
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-build-artifact
+          path: artifact/*
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [buildLinux, buildWindows, buildMac, buildMacArm]
+    steps:
+      - uses: actions/download-artifact@v4
+      - name: Move files
+        run: |
+          mv linux-build-artifact/* .
+          mv windows-build-artifact/* .
+          mv mac-build-artifact/* .
+          mv mac-arm-build-artifact/* .
+      - name: Generate release body
+        run: |
+          touch changelog.md
+          git tag -l --format='%(contents)' ${{github.ref_name}} >> changelog.md
+          echo ''    >> changelog.md
+          echo '```' >> changelog.md
+          sha256sum *.so* >> changelog.md
+          echo '```' >> changelog.md
+          echo ''    >> changelog.md
+          echo '```' >> changelog.md
+          sha256sum *.dll* >> changelog.md
+          echo '```' >> changelog.md
+          echo ''    >> changelog.md
+          echo '```' >> changelog.md
+          sha256sum *.dylib* >> changelog.md
+          echo '```' >> changelog.md
+          echo ''    >> changelog.md
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./*
+          body_path: changelog.md
+          tag_name: ${{github.ref_name}}
